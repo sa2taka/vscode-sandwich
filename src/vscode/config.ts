@@ -8,33 +8,24 @@ const CONFIG_SECTION = "vscodeSandwich";
 /**
  * Configuration keys
  */
-export const CONFIG_KEYS = {
-  ENTER_TO_CONFIRM: "enterToConfirm",
-  DEFAULT_PAIRS: "defaultPairs",
-  HIGHLIGHT_COLOR: "highlightColor",
-} as const;
+export type ConfigKey = "enterToConfirm" | "defaultPairs" | "highlightColor";
 
 /**
  * Default configuration values
  */
 export const DEFAULT_CONFIG = {
-  [CONFIG_KEYS.ENTER_TO_CONFIRM]: true,
-  [CONFIG_KEYS.DEFAULT_PAIRS]: ["'", '"', "`", "t"],
-  [CONFIG_KEYS.HIGHLIGHT_COLOR]: "rgba(255, 255, 0, 0.3)",
+  enterToConfirm: false,
+  defaultPairs: ["'", '"', "`", "t"],
+  highlightColor: "rgba(255, 255, 0, 0.3)",
 };
-
-/**
- * Type for configuration keys
- */
-export type ConfigKey = keyof typeof CONFIG_KEYS;
 
 /**
  * Type for configuration values
  */
 export type ConfigValues = {
-  [CONFIG_KEYS.ENTER_TO_CONFIRM]: boolean;
-  [CONFIG_KEYS.DEFAULT_PAIRS]: readonly string[];
-  [CONFIG_KEYS.HIGHLIGHT_COLOR]: string;
+  enterToConfirm: boolean;
+  defaultPairs: readonly string[];
+  highlightColor: string;
 };
 
 /**
@@ -42,15 +33,13 @@ export type ConfigValues = {
  * @param key Configuration key
  * @returns Configuration value
  */
-export const getConfig = <K extends ConfigKey>(key: K): ConfigValues[(typeof CONFIG_KEYS)[K]] => {
+export const getConfig = <K extends ConfigKey>(key: K): ConfigValues[K] => {
   const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
 
-  // Handle all cases generically
-  const defaultValue = DEFAULT_CONFIG[CONFIG_KEYS[key]];
+  const defaultValue = DEFAULT_CONFIG[key];
   const value = config.get(key, defaultValue);
 
-  // Type assertion is necessary due to TypeScript's limitations with indexed access types
-  return value as unknown as ConfigValues[(typeof CONFIG_KEYS)[K]];
+  return value as unknown as ConfigValues[K];
 };
 
 /**
@@ -60,11 +49,7 @@ export const getConfig = <K extends ConfigKey>(key: K): ConfigValues[(typeof CON
  * @param global Whether to set the value globally
  * @returns Promise that resolves when the configuration is updated
  */
-export const setConfig = async <K extends ConfigKey>(
-  key: K,
-  value: ConfigValues[(typeof CONFIG_KEYS)[K]],
-  global = false
-): Promise<void> => {
+export const setConfig = async <K extends ConfigKey>(key: K, value: ConfigValues[K], global = false): Promise<void> => {
   const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
   await config.update(key, value, global);
 };

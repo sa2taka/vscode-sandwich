@@ -10,7 +10,7 @@ export class Highlighter {
 
   constructor() {
     // Create decoration type with configurable color
-    const highlightColor = getConfig("highlightColor" as any) as string;
+    const highlightColor = getConfig("highlightColor");
     this.decorationType = vscode.window.createTextEditorDecorationType({
       backgroundColor: highlightColor,
       border: "1px solid rgba(0, 0, 0, 0.3)",
