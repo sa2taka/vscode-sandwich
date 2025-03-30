@@ -74,3 +74,17 @@ VSCode Sandwichは、人気のあるVimプラグイン[vim-sandwich](https://git
 ## ライセンス
 
 [MIT](LICENSE)
+
+## 拡張機能の公開方法
+
+以下の手順で拡張機能を公開できます：
+1. Azure DevOps(https://dev.azure.com/{Your_Organization})にアクセスしてPAT（Personal Access Token）を取得します。
+2. `package.json`内のバージョンを更新します。
+3. 以下のコマンドを実行してパッケージを作成します（依存関係を含めない）：
+   ```
+   vsce package <version> --no-dependencies
+   ```
+4. 以下のコマンドを実行して拡張機能を公開します（依存関係を含めない）：
+   ```
+   vsce publish <version> --no-dependencies
+   ```
