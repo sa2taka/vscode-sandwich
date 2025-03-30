@@ -181,11 +181,15 @@ export async function showSourcePairQuickPick(isHtml: boolean): Promise<PairType
   // Create quick pick items from detected pairs
   const pairs: ValueQuickPickItem<PairType>[] = [];
 
-  // Add basic pair options (quotes) if they exist in the detected pairs
+  // Add basic pair options (quotes and brackets) if they exist in the detected pairs
   const basicPairMap: Record<string, string> = {
     "'": "Single quotes",
     '"': "Double quotes",
     "`": "Back quotes",
+    "()": "Parentheses",
+    "{}": "Braces",
+    "[]": "Brackets",
+    "<>": "Angle brackets",
   };
 
   for (const pair of detectedPairs) {
@@ -215,7 +219,11 @@ export async function showSourcePairQuickPick(isHtml: boolean): Promise<PairType
     pairs.push(
       { label: "'", description: "Single quotes", value: "'" },
       { label: '"', description: "Double quotes", value: '"' },
-      { label: "`", description: "Back quotes", value: "`" }
+      { label: "`", description: "Back quotes", value: "`" },
+      { label: "()", description: "Parentheses", value: "()" },
+      { label: "{}", description: "Braces", value: "{}" },
+      { label: "[]", description: "Brackets", value: "[]" },
+      { label: "<>", description: "Angle brackets", value: "<>" }
     );
 
     // Add tag option for HTML-like files
@@ -268,6 +276,10 @@ export async function showDestinationPairQuickPick(isHtml: boolean): Promise<Pai
     { label: "'", description: "Single quotes", value: "'" },
     { label: '"', description: "Double quotes", value: '"' },
     { label: "`", description: "Back quotes", value: "`" },
+    { label: "()", description: "Parentheses", value: "()" },
+    { label: "{}", description: "Braces", value: "{}" },
+    { label: "[]", description: "Brackets", value: "[]" },
+    { label: "<>", description: "Angle brackets", value: "<>" },
   ];
 
   // Add tag option for HTML-like files

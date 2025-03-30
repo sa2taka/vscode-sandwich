@@ -18,11 +18,11 @@
     *   `at`: タグ全体 (例: `<p>ここ</p>`)
     *   `st`: 自己閉じタグ (例: `<img />`)
 4.  **ペア/ターゲット選択:**
-    *   `a` (追加): 追加するペア (`'`, `"`, `` ` `` , `t` -> タグ名入力) を選択
-    *   `d` (削除): 削除するペア/タグ (`'`, `"`, `` ` `` , `t`) を選択
-    *   `r` (置換): 置換元のペア/タグ (`'`, `"`, `` ` `` , `t`) を選択
+    *   `a` (追加): 追加するペア (`'`, `"`, `` ` ``, `()`, `{}`, `[]`, `<>`, `t` -> タグ名入力) を選択
+    *   `d` (削除): 削除するペア/タグ (`'`, `"`, `` ` ``, `()`, `{}`, `[]`, `<>`, `t`) を選択
+    *   `r` (置換): 置換元のペア/タグ (`'`, `"`, `` ` ``, `()`, `{}`, `[]`, `<>`, `t`) を選択
 5.  **置換後のペア選択 (r の場合):**
-    *   置換後のペア (`'`, `"`, `` ` `` , `t` -> タグ名入力) を選択
+    *   置換後のペア (`'`, `"`, `` ` ``, `()`, `{}`, `[]`, `<>`, `t` -> タグ名入力) を選択
 6.  **実行:** 選択された操作と範囲に基づき、テキストを編集する。
 
 ### 2.2. UX要件
@@ -114,7 +114,7 @@ sequenceDiagram
     CommandHandler->>RangeSelector: getRange('it', currentDoc, cursorPos)
     RangeSelector-->>CommandHandler: Return target Range
     CommandHandler->>Highlighter: highlight(target Range)
-    CommandHandler->>VSCode UI: Show QuickPick (Pair: ', ", `, t)
+    CommandHandler->>VSCode UI: Show QuickPick (Pair: ', ", `, (), {}, [], <>, t)
     User->>VSCode UI: Select 't'
     CommandHandler->>VSCode UI: Show InputBox (Tag name)
     User->>VSCode UI: Input 'div'
@@ -149,6 +149,7 @@ sequenceDiagram
 4.  **機能拡張:**
     *   `it`, `at`, `st` の範囲選択実装。
     *   タグ (`t`) の追加/削除/置換機能実装。
+    *   括弧 (`()`, `{}`, `[]`, `<>`) の追加/削除/置換機能実装。
     *   置換 (`r`) 操作の実装。
     *   ハイライト機能 (`highlighter.ts`) 実装。
     *   設定機能 (`config.ts`) 実装。
@@ -156,7 +157,7 @@ sequenceDiagram
 6.  **ドキュメント整備:** README、使い方ガイド。
 7.  **リリース準備:** `package.json` の整備、`vsce` でのパッケージング。
 
-## 6. 型定義の具体化 (要望反映)
+## 6. 型定義の具体化
 
 `core/types.ts` に以下のような型を追加定義することを検討する。
 
@@ -168,7 +169,7 @@ export type OperationType = 'add' | 'delete' | 'replace';
 export type RangeType = '_' | 's' | 'it' | 'at' | 'st';
 
 // ペアの種類 (基本)
-export type BasicPairType = "'" | '"' | '`';
+export type BasicPairType = "'" | '"' | '`' | '()' | '{}' | '[]' | '<>';
 
 // ペアの種類 (タグ)
 export type TagPairType = { type: 'tag'; name: string };
@@ -176,21 +177,92 @@ export type TagPairType = { type: 'tag'; name: string };
 // ペアの種類 (全体)
 export type PairType = BasicPairType | TagPairType;
 
-// RangeSelector が返す情報 (例)
-export type SelectionRangeResult = {
-  range: vscode.Range; // VSCode の Range オブジェクト
-  // 必要に応じて追加情報 (例: 選択されたテキスト)
+// 位置情報
+export type Position = {
+  line: number;
+  character: number;
 };
 
-// TextManipulator が返す情報 (VSCode API の TextEdit を想定)
-export type TextEditResult = vscode.TextEdit[];
+// 範囲情報
+export type Range = {
+  start: Position;
+  end: Position;
+};
 
-// CommandHandler がステップ間で引き回す可能性のある状態 (例)
-export type CommandState = {
-  operation?: OperationType;
-  targetRange?: vscode.Range;
-  sourcePair?: PairType; // 置換元や削除対象
-  destinationPair?: PairType; // 追加先や置換先
+// エディタの状態
+export type EditorState = {
+  documentText: string;
+  cursorPosition: Position;
+  selection: Range;
+  getLineText: (lineNumber: number) => string;
+};
+
+// RangeSelector が返す情報
+export type SelectionRangeResult = {
+  range: Range;
+  text: string;
+};
+
+// TextManipulator が返す情報
+export type TextEdit = {
+  range: Range;
+  newText: string;
+};
+
+// 括弧ペア情報
+export type BracketPair = {
+  opening: string;
+  closing: string;
+};
+
+// 括弧ペアのマッピング
+export const BRACKET_PAIRS: Record<BasicPairType, BracketPair> = {
+  "'": { opening: "'", closing: "'" },
+  '"': { opening: '"', closing: '"' },
+  '`': { opening: '`', closing: '`' },
+  '()': { opening: '(', closing: ')' },
+  '{}': { opening: '{', closing: '}' },
+  '[]': { opening: '[', closing: ']' },
+  '<>': { opening: '<', closing: '>' },
 };
 ```
-*(注: `vscode.Range` や `vscode.TextEdit` は実際には `core` に直接含めず、抽象化するか `vscode` 層で変換することを検討)*
+*(注: 実際の型定義は既存のコードに合わせて調整する必要があります)*
+
+## 7. 括弧ペアの実装計画
+
+### 7.1. 括弧ペアの検出と選択
+
+1. **`findAllSurroundingPairs` 関数の拡張:**
+   * 現在は引用符とHTMLタグのみを検出しているが、括弧ペア (`()`, `{}`, `[]`, `<>`) も検出するように拡張する。
+   * 各括弧タイプに対して、開始括弧と終了括弧のペアを検出する。
+
+2. **`findSurroundingPair` 関数の拡張:**
+   * 括弧ペアをサポートするように拡張する。
+   * 括弧は引用符と異なり、開始文字と終了文字が異なるため、それに対応した処理を実装する。
+
+3. **`getPairDelimiter` 関数の拡張:**
+   * 括弧ペアの開始文字と終了文字を返すように拡張する。
+
+### 7.2. UI対応
+
+1. **`showSourcePairQuickPick` と `showDestinationPairQuickPick` の拡張:**
+   * QuickPickに括弧ペアのオプションを追加する。
+   * 括弧ペアの表示ラベルと説明を設定する。
+
+2. **検出された括弧ペアの表示:**
+   * カーソル位置で検出された括弧ペアをQuickPickに表示する。
+
+### 7.3. テキスト編集処理
+
+1. **`getTextEdits` 関数の拡張:**
+   * 括弧ペアの追加、削除、置換に対応するように拡張する。
+   * 括弧ペアの開始文字と終了文字を適切に処理する。
+
+### 7.4. テスト
+
+1. **単体テストの拡張:**
+   * 括弧ペアの検出、選択、編集に関するテストケースを追加する。
+   * エッジケース（ネストされた括弧など）のテストを含める。
+
+2. **結合テスト:**
+   * 実際のエディタ環境での括弧ペア操作のテストを行う。

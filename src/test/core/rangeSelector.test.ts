@@ -236,7 +236,7 @@ suite("Core: Range Selector Test Suite", () => {
 
     const results: DetectedPair[] = findAllSurroundingPairs(editorState);
 
-    assert.strictEqual(results.length, 3, "Should detect 3 pairs: single quotes, p tag, and div tag");
+    assert.strictEqual(results.length, 4, "Should detect 4 pairs: single quotes, brackets, p tag, and div tag");
 
     // Check for single quotes
     const singleQuotePair = results.find((pair: DetectedPair) => pair.pairType === "'");
@@ -273,8 +273,8 @@ suite("Core: Range Selector Test Suite", () => {
 
     const results: DetectedPair[] = findAllSurroundingPairs(editorState);
 
-    // Should detect p tag and inner div tag
-    assert.strictEqual(results.length, 2, "Should detect 2 pairs: p tag and inner div tag");
+    // Should detect p tag, inner div tag, and brackets
+    assert.strictEqual(results.length, 3, "Should detect 3 pairs: p tag, inner div tag, and brackets");
 
     // Check for p tag
     const pTagPair = results.find((pair: DetectedPair) => typeof pair.pairType === "object" && pair.pairType.name === "p");

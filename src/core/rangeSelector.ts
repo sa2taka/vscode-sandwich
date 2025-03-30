@@ -1,4 +1,13 @@
-import type { BasicPairType, EditorState, PairType, Position, Range, RangeType, SelectionRangeResult } from "./types";
+import {
+  PAIR_DELIMITERS,
+  type BasicPairType,
+  type EditorState,
+  type PairType,
+  type Position,
+  type Range,
+  type RangeType,
+  type SelectionRangeResult,
+} from "./types";
 
 /**
  * Calculates the range to operate on based on the specified range type.
@@ -343,9 +352,31 @@ type TagPair = {
  */
 export const findAllSurroundingPairs = (editorState: EditorState): DetectedPair[] => {
   const quotePairs = findQuotePairs(editorState);
+  const bracketPairs = findBracketPairs(editorState);
   const tagPairs = findSurroundingTagPairs(editorState);
 
-  return [...quotePairs, ...tagPairs];
+  return [...quotePairs, ...bracketPairs, ...tagPairs];
+};
+
+/**
+ * Finds bracket pairs (parentheses, braces, brackets, angle brackets) surrounding the cursor
+ */
+const findBracketPairs = (editorState: EditorState): DetectedPair[] => {
+  const pairs: DetectedPair[] = [];
+  const bracketTypes: BasicPairType[] = ["()", "{}", "[]", "<>"];
+
+  for (const bracketType of bracketTypes) {
+    const result = findSurroundingPair(editorState, bracketType);
+    if (result) {
+      pairs.push({
+        pairType: bracketType,
+        range: result.range,
+        text: result.text ?? "",
+      });
+    }
+  }
+
+  return pairs;
 };
 
 /**
@@ -502,8 +533,8 @@ export const findSurroundingPair = (editorState: EditorState, pair: PairType): S
  */
 const getPairDelimiter = (pair: PairType): PairDelimiter => {
   if (typeof pair === "string") {
-    // Basic pair (quotes)
-    return { opening: pair, closing: pair };
+    // Basic pair (quotes or brackets)
+    return PAIR_DELIMITERS[pair];
   } else {
     // Tag pair
     return {
@@ -529,7 +560,7 @@ const findSurroundingQuotePair = (
   const closingIndices = findAllOccurrences(documentText, closing);
 
   // Find the pair that surrounds the cursor
-  const pairPosition = findSurroundingPairPosition(cursorOffset, openingIndices, closingIndices, opening.length);
+  const pairPosition = findSurroundingPairPosition(cursorOffset, openingIndices, closingIndices, opening.length, closing.length);
 
   if (!pairPosition) {
     return null;
@@ -563,7 +594,8 @@ const findSurroundingPairPosition = (
   cursorOffset: number,
   openingIndices: number[],
   closingIndices: number[],
-  openingLength: number
+  openingLength: number,
+  closingLength: number = openingLength
 ): PairPosition | null => {
   for (const openingStart of openingIndices) {
     // Skip if opening is after cursor
@@ -582,7 +614,7 @@ const findSurroundingPairPosition = (
           openingStart,
           openingEnd,
           closingStart,
-          closingEnd: closingStart + openingLength,
+          closingEnd: closingStart + closingLength,
         };
       }
     }

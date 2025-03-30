@@ -19,7 +19,7 @@ export type RangeType = "_" | "s" | "it" | "at" | "st";
 /**
  * Basic pair types
  */
-export type BasicPairType = "'" | '"' | "`";
+export type BasicPairType = "'" | '"' | "`" | "()" | "{}" | "[]" | "<>";
 
 /**
  * Tag pair type
@@ -97,4 +97,27 @@ export type CommandState = {
   targetRange?: Range;
   sourcePair?: PairType;
   destinationPair?: PairType;
+};
+
+/**
+ * Bracket pair information
+ * Defines opening and closing characters for each pair type
+ */
+export type BracketPair = {
+  opening: string;
+  closing: string;
+};
+
+/**
+ * Mapping of pair types to their opening and closing characters
+ */
+export const PAIR_DELIMITERS: Record<BasicPairType | "tag", BracketPair> = {
+  "'": { opening: "'", closing: "'" },
+  '"': { opening: '"', closing: '"' },
+  "`": { opening: "`", closing: "`" },
+  "()": { opening: "(", closing: ")" },
+  "{}": { opening: "{", closing: "}" },
+  "[]": { opening: "[", closing: "]" },
+  "<>": { opening: "<", closing: ">" },
+  tag: { opening: "", closing: "" }, // Will be set dynamically based on tag name
 };
