@@ -1,7 +1,8 @@
 {
   "name": "vscode-sandwich",
+  "publisher": "sa2taka",
   "displayName": "VSCode sandwich",
-  "description": "Work with stuff tath comes in pairs like brackets, quotes and HTML tags.",
+  "description": "Work with stuff that comes in pairs like brackets, quotes and HTML tags.",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.98.0"
@@ -9,6 +10,10 @@
   "categories": [
     "Other"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sa2taka/vscode-sandwich"
+  },
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {

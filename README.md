@@ -1,71 +1,81 @@
-# vscode-sandwich README
+# VSCode Sandwich
 
-This is the README for your extension "vscode-sandwich". After writing up a brief description, we recommend including the following sections.
+A Visual Studio Code extension inspired by [vim-sandwich](https://github.com/machakann/vim-sandwich) that provides operations to add, delete, and replace surroundings like quotes (single `'`, double `"`, backtick `` ` ``), brackets (parentheses `()`, braces `{}`, square brackets `[]`, angle brackets `<>`), and HTML/XML tags.
+
+## Overview
+
+This extension adapts the core concept of vim-sandwich to VSCode's editing environment. It is not a complete port or fully compatible implementation, but rather a VSCode-native approach to text surrounding operations.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+- **Add surroundings** to text objects
+   - Multiple selection modes:
+      - `_`: Entire line
+      - `s`: Current selection
+      - `it`: Inside HTML/XML tags
+      - `at`: Around HTML/XML tags (including the tags)
+      - `st`: Self-closing tags
+  
+   ![Add](./img/add.gif)
+- **Delete surroundings** from text objects
+   ![Delete](./img/delete.gif)
+- **Replace surroundings** with different surroundings
+   ![Replace](./img/replace.gif)
 
-For example if there is an image subfolder under your extension project workspace:
+## Usage
 
-\!\[feature X\]\(images/feature-x.png\)
+The extension uses a command-based workflow:
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+1. Trigger the extension (default: `Cmd-k + s` on macOS, `Ctrl-k + s` on Windows/Linux)
+2. Select operation: `a` (add), `d` (delete), or `r` (replace)
+3. Select target range (for add operation)
+4. Select surrounding type
 
-## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+## Installation
 
-## Extension Settings
+```
+1. Open VS Code
+2. Go to Extensions (Cmd+Shift+X / Ctrl+Shift+X)
+3. Search for "VSCode Sandwich"
+4. Install
+```
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+## Configuration
 
-For example:
+The extension can be configured through VS Code settings:
 
-This extension contributes the following settings:
+```json
+"vscodeSandwich.enterToConfirm": false,
+"vscodeSandwich.highlightColor": "rgba(255, 255, 0, 0.3)"
+```
 
-- `myExtension.enable`: Enable/disable this extension.
-- `myExtension.thing`: Set to `blah` to do something.
+### Configuration Options
 
-## Known Issues
+#### `vscodeSandwich.enterToConfirm`
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+Controls whether the extension requires pressing Enter to confirm each selection or responds immediately when a key is pressed:
 
-## Release Notes
+- `false` (default): The extension responds immediately when you press a key, without waiting for Enter. This allows for faster workflows but may lead to accidental selections if you press the wrong key.
+- `true`: After selecting an operation (a/d/r) or range type, you need to press Enter to confirm and proceed to the next step. This is safer as it prevents accidental selections.
 
-Users appreciate release notes as you update your extension.
+For example, with `enterToConfirm: true`, the workflow would be:
+1. Press `Cmd-k + s`
+2. Press `a` then `Enter`
+3. Press `s` then `Enter`
+4. Press `"` then `Enter`
 
-### 1.0.0
+With `enterToConfirm: false`, the workflow would be:
+1. Press `Cmd-k + s`
+2. Press `a` (immediately proceeds to next step)
+3. Press `s` (immediately proceeds to next step)
+4. Press `"` (immediately applies the operation)
 
-Initial release of ...
+#### `vscodeSandwich.highlightColor`
 
-### 1.0.1
+Sets the color used for highlighting selected ranges. The default is `"rgba(255, 255, 0, 0.3)"` (semi-transparent yellow).
 
-Fixed issue #.
 
-### 1.1.0
+## License
 
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-- [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-- Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-- Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-- Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-- [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-- [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+[MIT](LICENSE)
