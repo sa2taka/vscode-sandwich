@@ -197,9 +197,10 @@ suite("Core: Range Selector Test Suite", () => {
     const result = findSurroundingPair(editorState, "'");
 
     assert.ok(result, "Result should not be null");
-    const expectedRange = createRange(0, 18, 0, 51);
+    // With the improved algorithm, we should get the closest quote pair to the cursor
+    const expectedRange = createRange(0, 18, 0, 22);
     assert.deepStrictEqual(result.range, expectedRange, "Range should be between the quotes");
-    assert.strictEqual(result.text, "fuga'; hello, world; console.log(", "Text should be the content between quotes");
+    assert.strictEqual(result.text, "fuga", "Text should be the content between quotes");
   });
 
   test("findSurroundingPair should detect when cursor is inside tag pair", () => {
@@ -362,6 +363,34 @@ suite("Core: Range Selector Test Suite", () => {
       const expectedRange = createRange(0, 18, 0, 23);
       assert.deepStrictEqual(innerDivTagPair.range, expectedRange, "Range should be between the innermost div tags");
       assert.strictEqual(innerDivTagPair.text, "world", "Text should be the content between innermost div tags");
+    });
+
+    test("findSurroundingPair should correctly handle consecutive quotes", () => {
+      const doc = 'import "hoge"; import "fuga";';
+      const cursor = createPosition(0, 25); // Cursor after "fuga"
+      const selection = createRange(0, 25, 0, 25);
+      const editorState = createMockEditorState(doc, cursor, selection);
+
+      const result = findSurroundingPair(editorState, '"');
+
+      assert.ok(result, "Result should not be null");
+      const expectedRange = createRange(0, 21, 0, 25);
+      assert.deepStrictEqual(result.range, expectedRange, "Range should be between the second pair of quotes");
+      assert.strictEqual(result.text, "fuga", "Text should be 'fuga'");
+    });
+
+    test("findSurroundingPair should correctly handle cursor at the end of quotes", () => {
+      const doc = 'import "hoge"; import "fuga"';
+      const cursor = createPosition(0, 26); // Cursor exactly after the closing quote of "fuga"
+      const selection = createRange(0, 26, 0, 26);
+      const editorState = createMockEditorState(doc, cursor, selection);
+
+      const result = findSurroundingPair(editorState, '"');
+
+      assert.ok(result, "Result should not be null");
+      const expectedRange = createRange(0, 21, 0, 25);
+      assert.deepStrictEqual(result.range, expectedRange, "Range should be between the second pair of quotes");
+      assert.strictEqual(result.text, "fuga", "Text should be 'fuga'");
     });
   });
 });

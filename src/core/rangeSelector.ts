@@ -547,6 +547,10 @@ const getPairDelimiter = (pair: PairType): PairDelimiter => {
 /**
  * Finds a surrounding quote pair
  */
+/**
+ * Finds a surrounding quote pair
+ * For quotes, we need to find the most appropriate pair based on cursor position
+ */
 const findSurroundingQuotePair = (
   editorState: EditorState,
   documentText: string,
@@ -555,43 +559,90 @@ const findSurroundingQuotePair = (
 ): SelectionRangeResult | null => {
   const { opening, closing } = delimiter;
 
-  // Find balanced pairs of brackets
+  // Find balanced pairs of brackets or quotes
   const balancedPairs = findBalancedPairs(documentText, opening, closing);
 
-  // Find all pairs that surround the cursor
-  const surroundingPairs = balancedPairs.filter((pair) => pair.start < cursorOffset && cursorOffset < pair.end);
+  if (opening === closing) {
+    // For quotes, find the pair that contains the cursor
+    // or the pair that has the closest opening quote before the cursor
+    let bestPair = null;
+    let minDistance = Number.MAX_SAFE_INTEGER;
 
-  // If we have multiple pairs, select the innermost one (smallest range)
-  const surroundingPair =
-    surroundingPairs.length > 0
-      ? surroundingPairs.reduce(
-          (smallest, current) => (current.end - current.start < smallest.end - smallest.start ? current : smallest),
-          surroundingPairs[0]
-        )
-      : null;
+    for (const pair of balancedPairs) {
+      // If cursor is inside this pair, it's a direct match
+      if (pair.start < cursorOffset && cursorOffset <= pair.end) {
+        bestPair = pair;
+        break;
+      }
 
-  if (!surroundingPair) {
-    // Fallback to the old method if no balanced pair is found
-    const openingIndices = findAllOccurrences(documentText, opening);
-    const closingIndices = findAllOccurrences(documentText, closing);
-    const pairPosition = findSurroundingPairPosition(cursorOffset, openingIndices, closingIndices, opening.length, closing.length);
+      // If cursor is exactly at the end of the closing quote, it's also a direct match
+      // This handles the case where cursor is right after the closing quote
+      if (cursorOffset === pair.end + closing.length) {
+        bestPair = pair;
+        break;
+      }
 
-    if (!pairPosition) {
-      return null;
+      // If cursor is after the closing quote, check if this is the closest pair
+      if (pair.end <= cursorOffset) {
+        const distance = cursorOffset - pair.end;
+        if (distance < minDistance) {
+          minDistance = distance;
+          bestPair = pair;
+        }
+      }
     }
+
+    // If we found a suitable pair
+    if (bestPair) {
+      // Convert to PairPosition
+      const pairPosition: PairPosition = {
+        openingStart: bestPair.start,
+        openingEnd: bestPair.start + opening.length,
+        closingStart: bestPair.end,
+        closingEnd: bestPair.end + closing.length,
+      };
+
+      return createSelectionResult(editorState, pairPosition);
+    }
+
+    return null;
+  } else {
+    // For brackets, use the existing logic
+    // Find all pairs that surround the cursor
+    const surroundingPairs = balancedPairs.filter((pair) => pair.start < cursorOffset && cursorOffset < pair.end);
+
+    // If we have multiple pairs, select the innermost one (smallest range)
+    const surroundingPair =
+      surroundingPairs.length > 0
+        ? surroundingPairs.reduce(
+            (smallest, current) => (current.end - current.start < smallest.end - smallest.start ? current : smallest),
+            surroundingPairs[0]
+          )
+        : null;
+
+    if (!surroundingPair) {
+      // Fallback to the old method if no balanced pair is found
+      const openingIndices = findAllOccurrences(documentText, opening);
+      const closingIndices = findAllOccurrences(documentText, closing);
+      const pairPosition = findSurroundingPairPosition(cursorOffset, openingIndices, closingIndices, opening.length, closing.length);
+
+      if (!pairPosition) {
+        return null;
+      }
+
+      return createSelectionResult(editorState, pairPosition);
+    }
+
+    // Convert to PairPosition
+    const pairPosition: PairPosition = {
+      openingStart: surroundingPair.start,
+      openingEnd: surroundingPair.start + opening.length,
+      closingStart: surroundingPair.end,
+      closingEnd: surroundingPair.end + closing.length,
+    };
 
     return createSelectionResult(editorState, pairPosition);
   }
-
-  // Convert to PairPosition
-  const pairPosition: PairPosition = {
-    openingStart: surroundingPair.start,
-    openingEnd: surroundingPair.start + opening.length,
-    closingStart: surroundingPair.end,
-    closingEnd: surroundingPair.end + closing.length,
-  };
-
-  return createSelectionResult(editorState, pairPosition);
 };
 
 /**
@@ -616,6 +667,11 @@ const findAllOccurrences = (text: string, searchString: string): number[] => {
  * Finds balanced pairs of brackets in text
  * This handles nested brackets correctly and returns all pairs, including nested ones
  */
+/**
+ * Finds balanced pairs of brackets in text
+ * This handles nested brackets correctly and returns all pairs, including nested ones
+ * For quotes, it ensures that each opening quote is matched with the next closing quote
+ */
 const findBalancedPairs = (text: string, opening: string, closing: string): { start: number; end: number }[] => {
   const pairs: { start: number; end: number }[] = [];
   const stack: number[] = [];
@@ -624,6 +680,18 @@ const findBalancedPairs = (text: string, opening: string, closing: string): { st
   const openingIndices = findAllOccurrences(text, opening);
   const closingIndices = findAllOccurrences(text, closing);
 
+  // For quotes, we need special handling since opening and closing are the same
+  if (opening === closing) {
+    // For quotes, pair each consecutive occurrence
+    for (let i = 0; i < openingIndices.length - 1; i += 2) {
+      if (i + 1 < openingIndices.length) {
+        pairs.push({ start: openingIndices[i], end: openingIndices[i + 1] });
+      }
+    }
+    return pairs;
+  }
+
+  // For brackets, use the stack-based approach
   // Sort all indices to process them in order
   const allIndices = [
     ...openingIndices.map((index) => ({ index, type: "opening" as const })),
