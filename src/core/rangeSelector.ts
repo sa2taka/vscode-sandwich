@@ -328,223 +328,327 @@ export type DetectedPair = {
 };
 
 /**
+ * Type for tag pair information
+ */
+type TagPair = {
+  name: string;
+  openingStart: number;
+  openingEnd: number;
+  closingStart: number;
+  closingEnd: number;
+};
+
+/**
  * Finds all surrounding pairs at the cursor position
- * @param editorState The current state of the editor
- * @returns Array of detected pairs
  */
 export const findAllSurroundingPairs = (editorState: EditorState): DetectedPair[] => {
-  const detectedPairs: DetectedPair[] = [];
-  const basicPairs: BasicPairType[] = ["'", '"', "`"];
+  const quotePairs = findQuotePairs(editorState);
+  const tagPairs = findSurroundingTagPairs(editorState);
 
-  // Check for basic pairs
-  for (const pair of basicPairs) {
-    const result = findSurroundingPair(editorState, pair);
+  return [...quotePairs, ...tagPairs];
+};
+
+/**
+ * Finds quote pairs (single, double, backtick) surrounding the cursor
+ */
+const findQuotePairs = (editorState: EditorState): DetectedPair[] => {
+  const pairs: DetectedPair[] = [];
+  const quoteTypes: BasicPairType[] = ["'", '"', "`"];
+
+  for (const quoteType of quoteTypes) {
+    const result = findSurroundingPair(editorState, quoteType);
     if (result) {
-      detectedPairs.push({
-        pairType: pair,
+      pairs.push({
+        pairType: quoteType,
         range: result.range,
         text: result.text ?? "",
       });
     }
   }
 
-  // Check for HTML tags
-  const { documentText, cursorPosition } = editorState;
+  return pairs;
+};
+
+/**
+ * Finds HTML tag pairs surrounding the cursor
+ */
+const findSurroundingTagPairs = (editorState: EditorState): DetectedPair[] => {
+  const { cursorPosition } = editorState;
   const cursorOffset = positionToOffset(editorState, cursorPosition);
+  const allTagPairs = findAllTagPairs(editorState.documentText);
 
-  // Find all tag pairs in the document
-  const tagPairs: { name: string; openingStart: number; openingEnd: number; closingStart: number; closingEnd: number }[] = [];
+  return allTagPairs
+    .filter((pair) => isOffsetBetween(cursorOffset, pair.openingEnd, pair.closingStart))
+    .map((pair) => createDetectedPair(editorState, pair));
+};
 
-  // Find all opening tags
+/**
+ * Finds all HTML tag pairs in the document
+ */
+const findAllTagPairs = (documentText: string): TagPair[] => {
+  const tagPairs: TagPair[] = [];
   const openingTagRegex = /<([A-Za-z][\dA-Za-z]*)[^>]*>/g;
-  let openingTagMatch: RegExpExecArray | null;
+  let openingMatch: RegExpExecArray | null;
 
-  while ((openingTagMatch = openingTagRegex.exec(documentText)) !== null) {
-    const tagName = openingTagMatch[1];
-    const openingStart = openingTagMatch.index;
-    const openingEnd = openingStart + openingTagMatch[0].length;
+  while ((openingMatch = openingTagRegex.exec(documentText)) !== null) {
+    const tagName = openingMatch[1];
+    const openingStart = openingMatch.index;
+    const openingEnd = openingStart + openingMatch[0].length;
 
-    // Find the matching closing tag
-    const closingTagRegex = new RegExp(`</${tagName}\\s*>`, "g");
-    let closingTagMatch: RegExpExecArray | null;
-
-    while ((closingTagMatch = closingTagRegex.exec(documentText)) !== null) {
-      const closingStart = closingTagMatch.index;
-      const closingEnd = closingStart + closingTagMatch[0].length;
-
-      // Skip if closing tag is before opening tag
-      if (closingStart < openingEnd) continue;
-
-      // Check if there's another opening tag of the same name between this opening and closing
-      const textBetweenTags = documentText.substring(openingEnd, closingStart);
-      const nestedOpeningRegex = new RegExp(`<${tagName}[^>]*>`, "g");
-      const hasNestedOpening = nestedOpeningRegex.test(textBetweenTags);
-
-      // Skip if there's a nested opening tag (this closing tag belongs to that one)
-      if (hasNestedOpening) continue;
-
-      // We found a matching closing tag
+    const matchingClosingTag = findMatchingClosingTag(documentText, tagName, openingEnd);
+    if (matchingClosingTag) {
       tagPairs.push({
         name: tagName,
         openingStart,
         openingEnd,
-        closingStart,
-        closingEnd,
-      });
-
-      break;
-    }
-  }
-
-  // Check which tag pairs surround the cursor
-  for (const pair of tagPairs) {
-    // Check if cursor is between opening and closing tags
-    if (cursorOffset > pair.openingEnd && cursorOffset < pair.closingStart) {
-      const openingEndPosition = offsetToPosition(editorState, pair.openingEnd);
-      const closingStartPosition = offsetToPosition(editorState, pair.closingStart);
-
-      const range: Range = {
-        start: openingEndPosition,
-        end: closingStartPosition,
-      };
-
-      const text = getTextFromRange(editorState, range);
-
-      detectedPairs.push({
-        pairType: { type: "tag", name: pair.name },
-        range,
-        text,
+        closingStart: matchingClosingTag.start,
+        closingEnd: matchingClosingTag.end,
       });
     }
   }
 
-  return detectedPairs;
+  return tagPairs;
+};
+
+/**
+ * Finds the matching closing tag for an opening tag
+ */
+const findMatchingClosingTag = (documentText: string, tagName: string, afterPosition: number): { start: number; end: number } | null => {
+  const closingTagRegex = new RegExp(`</${tagName}\\s*>`, "g");
+  closingTagRegex.lastIndex = afterPosition;
+
+  let closingMatch: RegExpExecArray | null;
+
+  while ((closingMatch = closingTagRegex.exec(documentText)) !== null) {
+    const closingStart = closingMatch.index;
+    const closingEnd = closingStart + closingMatch[0].length;
+
+    // Skip if there's a nested opening tag between this opening and closing
+    const textBetween = documentText.substring(afterPosition, closingStart);
+    const nestedOpeningRegex = new RegExp(`<${tagName}[^>]*>`, "g");
+
+    if (!nestedOpeningRegex.test(textBetween)) {
+      return { start: closingStart, end: closingEnd };
+    }
+  }
+
+  return null;
+};
+
+/**
+ * Checks if an offset is between two positions
+ */
+const isOffsetBetween = (offset: number, start: number, end: number): boolean => {
+  return offset > start && offset < end;
+};
+
+/**
+ * Creates a DetectedPair from a TagPair
+ */
+const createDetectedPair = (editorState: EditorState, tagPair: TagPair): DetectedPair => {
+  const openingEndPosition = offsetToPosition(editorState, tagPair.openingEnd);
+  const closingStartPosition = offsetToPosition(editorState, tagPair.closingStart);
+
+  const range: Range = {
+    start: openingEndPosition,
+    end: closingStartPosition,
+  };
+
+  const text = getTextFromRange(editorState, range);
+
+  return {
+    pairType: { type: "tag", name: tagPair.name },
+    range,
+    text,
+  };
+};
+
+/**
+ * Type for pair delimiter information
+ */
+type PairDelimiter = {
+  opening: string;
+  closing: string;
+};
+
+/**
+ * Type for pair position information
+ */
+type PairPosition = {
+  openingStart: number;
+  openingEnd: number;
+  closingStart: number;
+  closingEnd: number;
 };
 
 /**
  * Finds the surrounding pair at the cursor position
- * @param editorState The current state of the editor
- * @param pair The pair type to find
- * @returns The result of the selection range or null if not found
  */
 export const findSurroundingPair = (editorState: EditorState, pair: PairType): SelectionRangeResult | null => {
   const { documentText, cursorPosition } = editorState;
-
-  // Convert cursor position to document offset
   const cursorOffset = positionToOffset(editorState, cursorPosition);
+  const delimiter = getPairDelimiter(pair);
 
-  // Get opening and closing parts based on pair type
-  let opening: string;
-  let closing: string;
+  // Handle different pair types
+  if (typeof pair === "string") {
+    return findSurroundingQuotePair(editorState, documentText, cursorOffset, delimiter);
+  } else {
+    return findSurroundingTagPair(editorState, documentText, cursorOffset, delimiter);
+  }
+};
 
+/**
+ * Gets the opening and closing delimiters for a pair
+ */
+const getPairDelimiter = (pair: PairType): PairDelimiter => {
   if (typeof pair === "string") {
     // Basic pair (quotes)
-    opening = pair;
-    closing = pair;
+    return { opening: pair, closing: pair };
   } else {
     // Tag pair
-    opening = `<${pair.name}>`;
-    closing = `</${pair.name}>`;
+    return {
+      opening: `<${pair.name}>`,
+      closing: `</${pair.name}>`,
+    };
+  }
+};
+
+/**
+ * Finds a surrounding quote pair
+ */
+const findSurroundingQuotePair = (
+  editorState: EditorState,
+  documentText: string,
+  cursorOffset: number,
+  delimiter: PairDelimiter
+): SelectionRangeResult | null => {
+  const { opening, closing } = delimiter;
+
+  // Find all occurrences of opening and closing quotes
+  const openingIndices = findAllOccurrences(documentText, opening);
+  const closingIndices = findAllOccurrences(documentText, closing);
+
+  // Find the pair that surrounds the cursor
+  const pairPosition = findSurroundingPairPosition(cursorOffset, openingIndices, closingIndices, opening.length);
+
+  if (!pairPosition) {
+    return null;
   }
 
-  // For basic pairs (quotes), we need to find the exact pair that surrounds the cursor
-  if (typeof pair === "string") {
-    // Find all occurrences of the opening pair
-    const openingIndices: number[] = [];
-    let searchIndex = 0;
-    while (searchIndex < documentText.length) {
-      const foundIndex = documentText.indexOf(opening, searchIndex);
-      if (foundIndex === -1) break;
-      openingIndices.push(foundIndex);
-      searchIndex = foundIndex + 1;
-    }
+  return createSelectionResult(editorState, pairPosition);
+};
 
-    // Find all occurrences of the closing pair
-    const closingIndices: number[] = [];
-    searchIndex = 0;
-    while (searchIndex < documentText.length) {
-      const foundIndex = documentText.indexOf(closing, searchIndex);
-      if (foundIndex === -1) break;
-      closingIndices.push(foundIndex);
-      searchIndex = foundIndex + 1;
-    }
+/**
+ * Finds all occurrences of a string in text
+ */
+const findAllOccurrences = (text: string, searchString: string): number[] => {
+  const indices: number[] = [];
+  let searchIndex = 0;
 
-    // Find the pair that surrounds the cursor
-    for (const openingIndex of openingIndices) {
-      // Skip if opening is after cursor
-      if (openingIndex >= cursorOffset) continue;
+  while (searchIndex < text.length) {
+    const foundIndex = text.indexOf(searchString, searchIndex);
+    if (foundIndex === -1) break;
 
-      // Find the next closing after this opening
-      for (const closingIndex of closingIndices) {
-        // Skip if closing is before opening or at the same position
-        if (closingIndex <= openingIndex) continue;
+    indices.push(foundIndex);
+    searchIndex = foundIndex + 1;
+  }
 
-        // Check if cursor is between opening and closing
-        if (cursorOffset > openingIndex && cursorOffset < closingIndex) {
-          // Calculate absolute positions
-          const openingEndOffset = openingIndex + opening.length;
-          const closingStartOffset = closingIndex;
+  return indices;
+};
 
-          // Convert offsets to positions
-          const openingEndPosition = offsetToPosition(editorState, openingEndOffset);
-          const closingStartPosition = offsetToPosition(editorState, closingStartOffset);
+/**
+ * Finds the position of a pair that surrounds the cursor
+ */
+const findSurroundingPairPosition = (
+  cursorOffset: number,
+  openingIndices: number[],
+  closingIndices: number[],
+  openingLength: number
+): PairPosition | null => {
+  for (const openingStart of openingIndices) {
+    // Skip if opening is after cursor
+    if (openingStart >= cursorOffset) continue;
 
-          // Create range from end of opening part to start of closing part
-          const range: Range = {
-            start: openingEndPosition,
-            end: closingStartPosition,
-          };
+    const openingEnd = openingStart + openingLength;
 
-          // Get the text content
-          const text = getTextFromRange(editorState, range);
+    // Find the next closing after this opening
+    for (const closingStart of closingIndices) {
+      // Skip if closing is before or at the opening
+      if (closingStart <= openingStart) continue;
 
-          return { range, text };
-        }
+      // Check if cursor is between opening and closing
+      if (cursorOffset > openingStart && cursorOffset < closingStart) {
+        return {
+          openingStart,
+          openingEnd,
+          closingStart,
+          closingEnd: closingStart + openingLength,
+        };
       }
     }
-
-    // No surrounding pair found
-    return null;
-  } else {
-    // For tag pairs, use the existing logic
-    // Find the closest opening part before cursor
-    const textBeforeCursor = documentText.substring(0, cursorOffset);
-    const lastOpeningIndex = textBeforeCursor.lastIndexOf(opening);
-
-    if (lastOpeningIndex === -1) {
-      return null; // No opening part found before cursor
-    }
-
-    // Find the closest closing part after the opening part
-    const textAfterOpening = documentText.substring(lastOpeningIndex + opening.length);
-    const nextClosingIndex = textAfterOpening.indexOf(closing);
-
-    if (nextClosingIndex === -1) {
-      return null; // No closing part found after opening
-    }
-
-    // Calculate absolute positions
-    const openingEndOffset = lastOpeningIndex + opening.length;
-    const closingStartOffset = openingEndOffset + nextClosingIndex;
-
-    // Check if cursor is between opening and closing
-    if (cursorOffset <= openingEndOffset || cursorOffset >= closingStartOffset) {
-      return null; // Cursor is not between opening and closing
-    }
-
-    // Convert offsets to positions
-    const openingEndPosition = offsetToPosition(editorState, openingEndOffset);
-    const closingStartPosition = offsetToPosition(editorState, closingStartOffset);
-
-    // Create range from end of opening part to start of closing part
-    const range: Range = {
-      start: openingEndPosition,
-      end: closingStartPosition,
-    };
-
-    // Get the text content
-    const text = getTextFromRange(editorState, range);
-
-    return { range, text };
   }
+
+  return null;
+};
+
+/**
+ * Finds a surrounding tag pair
+ */
+const findSurroundingTagPair = (
+  editorState: EditorState,
+  documentText: string,
+  cursorOffset: number,
+  delimiter: PairDelimiter
+): SelectionRangeResult | null => {
+  const { opening, closing } = delimiter;
+
+  // Find the closest opening tag before cursor
+  const textBeforeCursor = documentText.substring(0, cursorOffset);
+  const lastOpeningIndex = textBeforeCursor.lastIndexOf(opening);
+
+  if (lastOpeningIndex === -1) {
+    return null; // No opening tag found before cursor
+  }
+
+  // Find the closest closing tag after the opening tag
+  const openingEnd = lastOpeningIndex + opening.length;
+  const textAfterOpening = documentText.substring(openingEnd);
+  const nextClosingIndex = textAfterOpening.indexOf(closing);
+
+  if (nextClosingIndex === -1) {
+    return null; // No closing tag found after opening
+  }
+
+  const closingStart = openingEnd + nextClosingIndex;
+
+  // Check if cursor is between opening and closing tags
+  if (cursorOffset <= openingEnd || cursorOffset >= closingStart) {
+    return null; // Cursor is not between opening and closing
+  }
+
+  const pairPosition = {
+    openingStart: lastOpeningIndex,
+    openingEnd,
+    closingStart,
+    closingEnd: closingStart + closing.length,
+  };
+
+  return createSelectionResult(editorState, pairPosition);
+};
+
+/**
+ * Creates a SelectionRangeResult from a pair position
+ */
+const createSelectionResult = (editorState: EditorState, pairPosition: PairPosition): SelectionRangeResult => {
+  const openingEndPosition = offsetToPosition(editorState, pairPosition.openingEnd);
+  const closingStartPosition = offsetToPosition(editorState, pairPosition.closingStart);
+
+  const range: Range = {
+    start: openingEndPosition,
+    end: closingStartPosition,
+  };
+
+  const text = getTextFromRange(editorState, range);
+
+  return { range, text };
 };
