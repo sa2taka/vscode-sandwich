@@ -1,17 +1,17 @@
 import type { EditorState, Range, RangeType, SelectionRangeResult } from "./types";
 
 /**
- * 指定された範囲タイプに基づいて、操作対象の範囲を計算します。
- * @param rangeType 範囲選択の種類
- * @param editorState 現在のエディタの状態
- * @returns 選択範囲の結果
+ * Calculates the range to operate on based on the specified range type.
+ * @param rangeType The type of range selection
+ * @param editorState The current state of the editor
+ * @returns The result of the selection range
  */
 export const selectRange = (rangeType: RangeType, editorState: EditorState): SelectionRangeResult | null => {
   switch (rangeType) {
     case "_": {
       const line = editorState.cursorPosition.line;
       const lineText = editorState.getLineText(line);
-      // 行頭から行末まで（改行文字は含めない）
+      // From the beginning to the end of the line (excluding newline characters)
       const startCharacter = 0;
       const endCharacter = lineText.length;
       const range: Range = {
@@ -21,16 +21,16 @@ export const selectRange = (rangeType: RangeType, editorState: EditorState): Sel
       return { range, text: lineText };
     }
     case "s": {
-      // 選択範囲が空でないことを確認
+      // Ensure the selection range is not empty
       if (
         editorState.selection.start.line === editorState.selection.end.line &&
         editorState.selection.start.character === editorState.selection.end.character
       ) {
-        // 選択範囲がない場合は null を返すか、エラーを投げるか検討
+        // If there is no selection range, consider returning null or throwing an error
         console.warn('RangeType "s" requires a selection.');
         return null;
       }
-      // TODO: 選択範囲のテキストを取得するロジックを追加
+      // TODO: Add logic to retrieve the text of the selection range
       return { range: editorState.selection };
     }
     case "it":
@@ -40,7 +40,7 @@ export const selectRange = (rangeType: RangeType, editorState: EditorState): Sel
       console.warn(`RangeType "${rangeType}" is not implemented yet.`);
       return null;
     default: {
-      // 不明な RangeType - 理論上到達しないはずだが念のため
+      // Unknown RangeType - theoretically unreachable, but just in case
       const exhaustiveCheck: never = rangeType;
       console.error(`Unknown RangeType: ${exhaustiveCheck as string}`);
       return null;

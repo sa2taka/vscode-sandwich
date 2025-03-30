@@ -31,18 +31,8 @@
       "properties": {
         "vscodeSandwich.enterToConfirm": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "Whether to require Enter key to confirm selections"
-        },
-        "vscodeSandwich.defaultPairs": {
-          "type": "array",
-          "default": [
-            "'",
-            "\"",
-            "`",
-            "t"
-          ],
-          "description": "Default pairs to show in the quick pick"
         },
         "vscodeSandwich.highlightColor": {
           "type": "string",

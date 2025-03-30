@@ -2,7 +2,15 @@ import * as vscode from "vscode";
 import { selectRange } from "../core/rangeSelector";
 import { getTextEdits } from "../core/textManipulator";
 import type { Position as CorePosition, Range as CoreRange, EditorState, OperationType, PairType, RangeType } from "../core/types";
+import { getConfig } from "./config";
 import { getHighlighter } from "./highlighter";
+
+/**
+ * Type for QuickPick items with a value property
+ */
+type ValueQuickPickItem<T> = vscode.QuickPickItem & {
+  value: T;
+};
 
 /**
  * Convert VSCode Range to Core Range
@@ -60,72 +68,120 @@ function getCurrentEditorState(): EditorState | null {
 }
 
 /**
+ * Create a common quick pick with enhanced behavior
+ * This function creates a QuickPick that can automatically select an item when there's only one option
+ * based on the ENTER_TO_CONFIRM configuration
+ */
+async function createCommonQuickPick<T>(
+  items: ValueQuickPickItem<T>[],
+  placeHolder: string,
+  onFilterChange?: (value: string, quickPick: vscode.QuickPick<ValueQuickPickItem<T>>) => void
+): Promise<T | undefined> {
+  const quickPick = vscode.window.createQuickPick<ValueQuickPickItem<T>>();
+  quickPick.items = items;
+  quickPick.placeholder = placeHolder;
+
+  const enterToConfirm = getConfig("enterToConfirm");
+
+  return new Promise<T | undefined>((resolve) => {
+    let selectedValue: T | undefined;
+
+    quickPick.onDidChangeActive((activeItems) => {
+      // If ENTER_TO_CONFIRM is false and there's only one active item, select it automatically
+      if (!enterToConfirm && activeItems.length === 1) {
+        const filteredItems = quickPick.items.filter((item) => item.label.toLowerCase().includes(quickPick.value.toLowerCase()));
+
+        if (filteredItems.length === 1) {
+          selectedValue = filteredItems[0].value;
+          quickPick.hide();
+          resolve(selectedValue);
+        }
+      }
+    });
+
+    quickPick.onDidChangeValue((value) => {
+      if (onFilterChange) {
+        onFilterChange(value, quickPick);
+      }
+
+      // If ENTER_TO_CONFIRM is false and there's only one matching item after filtering, select it automatically
+      if (!enterToConfirm && quickPick.items.length > 0) {
+        const filteredItems = quickPick.items.filter((item) => item.label.toLowerCase().includes(value.toLowerCase()));
+
+        if (filteredItems.length === 1) {
+          selectedValue = filteredItems[0].value;
+          quickPick.hide();
+          resolve(selectedValue);
+        }
+      }
+    });
+
+    quickPick.onDidAccept(() => {
+      const selection = quickPick.activeItems[0];
+      // selection is always truthy when onDidAccept is triggered
+      selectedValue = selection.value;
+      quickPick.hide();
+    });
+
+    quickPick.onDidHide(() => {
+      resolve(selectedValue);
+      quickPick.dispose();
+    });
+
+    quickPick.show();
+  });
+}
+
+/**
  * Show operation selection quick pick
  */
 async function showOperationQuickPick(): Promise<OperationType | undefined> {
-  const operations = [
-    { label: "Add", description: "Add surrounding pair", value: "add" as const },
-    { label: "Delete", description: "Delete surrounding pair", value: "delete" as const },
-    { label: "Replace", description: "Replace surrounding pair", value: "replace" as const },
+  const operations: ValueQuickPickItem<OperationType>[] = [
+    { label: "a", description: "Add surrounding pair", value: "add" as const },
+    { label: "d", description: "Delete surrounding pair", value: "delete" as const },
+    { label: "r", description: "Replace surrounding pair", value: "replace" as const },
   ];
 
-  const selected = await vscode.window.showQuickPick(operations, {
-    placeHolder: "Select operation",
-  });
-
-  return selected?.value;
+  return await createCommonQuickPick(operations, "Select operation");
 }
 
 /**
  * Show range type selection quick pick
  */
 async function showRangeTypeQuickPick(): Promise<RangeType | undefined> {
-  const rangeTypes = [
-    { label: "Line (_)", description: "Current line", value: "_" as const },
-    { label: "Selection (s)", description: "Current selection", value: "s" as const },
-    { label: "Inside Tag (it)", description: "Inside tag", value: "it" as const },
-    { label: "Around Tag (at)", description: "Around tag", value: "at" as const },
-    { label: "Self-closing Tag (st)", description: "Self-closing tag", value: "st" as const },
+  const rangeTypes: ValueQuickPickItem<RangeType>[] = [
+    { label: "_", description: "Current line", value: "_" as const },
+    { label: "s", description: "Current selection", value: "s" as const },
+    { label: "it", description: "Inside tag", value: "it" as const },
+    { label: "at", description: "Around tag", value: "at" as const },
+    { label: "st", description: "Self-closing tag", value: "st" as const },
   ];
 
-  const selected = await vscode.window.showQuickPick(rangeTypes, {
-    placeHolder: "Select range type",
-  });
-
-  return selected?.value;
+  return await createCommonQuickPick(rangeTypes, "Select range type");
 }
 
 /**
  * Show pair selection quick pick
  */
 async function showPairQuickPick(isHtml: boolean): Promise<PairType | undefined> {
-  type QuickPickItem = {
-    label: string;
-    description: string;
-    value: PairType;
-  };
-
-  const pairs: QuickPickItem[] = [
-    { label: "Single Quote (')", description: "Single quotes", value: "'" },
-    { label: 'Double Quote (")', description: "Double quotes", value: '"' },
-    { label: "Back Quote (`)", description: "Back quotes", value: "`" },
+  const pairs: ValueQuickPickItem<PairType>[] = [
+    { label: "'", description: "Single quotes", value: "'" },
+    { label: '"', description: "Double quotes", value: '"' },
+    { label: "`", description: "Back quotes", value: "`" },
   ];
 
   // Add tag option for HTML-like files
   if (isHtml) {
     pairs.push({
-      label: "Tag (<tag></tag>)",
+      label: "t",
       description: "HTML tag",
       value: { type: "tag", name: "" },
     });
   }
 
-  const selected = await vscode.window.showQuickPick(pairs, {
-    placeHolder: "Select pair",
-  });
+  const selectedValue = await createCommonQuickPick(pairs, "Select pair");
 
   // Check if selected value is a tag pair
-  const selectedValue = selected?.value;
   if (selectedValue && typeof selectedValue === "object" && "type" in selectedValue) {
     // For tag pair, ask for tag name
     const tagName = await vscode.window.showInputBox({
@@ -140,7 +196,7 @@ async function showPairQuickPick(isHtml: boolean): Promise<PairType | undefined>
     return { type: "tag", name: tagName };
   }
 
-  return selected?.value;
+  return selectedValue;
 }
 
 /**
@@ -157,8 +213,8 @@ function isHtmlLikeDocument(): boolean {
   return (
     languageId === "html" ||
     languageId === "xml" ||
-    languageId === "jsx" ||
-    languageId === "tsx" ||
+    languageId === "javascriptreact" ||
+    languageId === "typescriptreact" ||
     languageId === "vue" ||
     languageId === "svelte"
   );
@@ -186,14 +242,12 @@ async function applyTextEdits(edits: vscode.TextEdit[]): Promise<boolean> {
  */
 export async function executeSandwichCommand(): Promise<void> {
   try {
-    // Get editor state
     const editorState = getCurrentEditorState();
     if (!editorState) {
       vscode.window.showErrorMessage("No active editor");
       return;
     }
 
-    // Show operation selection
     const operation = await showOperationQuickPick();
     if (!operation) {
       return;
