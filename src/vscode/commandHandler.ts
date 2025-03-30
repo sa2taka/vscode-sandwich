@@ -148,16 +148,29 @@ async function showOperationQuickPick(): Promise<OperationType | undefined> {
 /**
  * Show range type selection quick pick
  */
-async function showRangeTypeQuickPick(): Promise<RangeType | undefined> {
-  const rangeTypes: ValueQuickPickItem<RangeType>[] = [
-    { label: "_", description: "Current line", value: "_" as const },
-    { label: "s", description: "Current selection", value: "s" as const },
-    { label: "it", description: "Inside tag", value: "it" as const },
-    { label: "at", description: "Around tag", value: "at" as const },
-    { label: "st", description: "Self-closing tag", value: "st" as const },
-  ];
+async function showRangeTypeQuickPick(editorState: EditorState, isHtml: boolean): Promise<RangeType | undefined> {
+  // Base range types that are always available
+  const baseRangeTypes: ValueQuickPickItem<RangeType>[] = [{ label: "_", description: "Current line", value: "_" as const }];
 
-  return await createCommonQuickPick(rangeTypes, "Select range type");
+  // Add selection option only if there is an actual selection
+  const hasSelection =
+    editorState.selection.start.line !== editorState.selection.end.line ||
+    editorState.selection.start.character !== editorState.selection.end.character;
+
+  if (hasSelection) {
+    baseRangeTypes.push({ label: "s", description: "Current selection", value: "s" as const });
+  }
+
+  // Add HTML-specific options only for HTML-like documents
+  if (isHtml) {
+    baseRangeTypes.push(
+      { label: "it", description: "Inside tag", value: "it" as const },
+      { label: "st", description: "Self-closing tag", value: "st" as const },
+      { label: "at", description: "Around tag", value: "at" as const }
+    );
+  }
+
+  return await createCommonQuickPick(baseRangeTypes, "Select range type");
 }
 
 /**
@@ -253,12 +266,15 @@ export async function executeSandwichCommand(): Promise<void> {
       return;
     }
 
+    // Check if current document is HTML-like
+    const isHtml = isHtmlLikeDocument();
+
     // For add operation, show range type selection
     let rangeType: RangeType | undefined;
     let targetRange: CoreRange | undefined;
 
     if (operation === "add") {
-      rangeType = await showRangeTypeQuickPick();
+      rangeType = await showRangeTypeQuickPick(editorState, isHtml);
       if (!rangeType) {
         return;
       }
@@ -276,9 +292,6 @@ export async function executeSandwichCommand(): Promise<void> {
       const highlighter = getHighlighter();
       highlighter.highlight(convertToVSCodeRange(targetRange));
     }
-
-    // Check if current document is HTML-like
-    const isHtml = isHtmlLikeDocument();
 
     // For add and replace operations, show pair selection for the destination
     let destinationPair: PairType | undefined;
