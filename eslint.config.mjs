@@ -32,6 +32,7 @@ export default tseslint.config(
       "@typescript-eslint/require-await": ["off"], // Rule that checks if await is used in async functions. Turned off because we have functions that return Promises.
       "@typescript-eslint/no-explicit-any": ["off"], // Turned off because explicit any is mostly used as a workaround for specific reasons.
       "@typescript-eslint/no-empty-function": ["off"], // Turned off because empty implementations are usually intentional.
+      "@typescript-eslint/consistent-type-definitions": ["off"], // Rule to unify type definitions. Turned off because we sometimes need to use different approaches with 'type' or 'interface' depending on the case.
       "@typescript-eslint/restrict-template-expressions": [
         "error",
         {
