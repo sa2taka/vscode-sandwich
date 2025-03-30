@@ -319,6 +319,95 @@ const offsetToPosition = (editorState: EditorState, offset: number): Position =>
 };
 
 /**
+ * Type for detected pair information
+ */
+export type DetectedPair = {
+  pairType: PairType;
+  range: Range;
+  text: string;
+};
+
+/**
+ * Finds all surrounding pairs at the cursor position
+ * @param editorState The current state of the editor
+ * @returns Array of detected pairs
+ */
+export const findAllSurroundingPairs = (editorState: EditorState): DetectedPair[] => {
+  const detectedPairs: DetectedPair[] = [];
+  const basicPairs: ("'" | '"' | "`")[] = ["'", '"', "`"];
+
+  // Check for basic pairs
+  for (const pair of basicPairs) {
+    const result = findSurroundingPair(editorState, pair);
+    if (result) {
+      detectedPairs.push({
+        pairType: pair,
+        range: result.range,
+        text: result.text ?? "",
+      });
+    }
+  }
+
+  // Check for HTML tags
+  const { documentText, cursorPosition } = editorState;
+  const cursorOffset = positionToOffset(editorState, cursorPosition);
+
+  // Find all closing tags in the document
+  const closingTagRegex = /<\/([A-Za-z][\dA-Za-z]*)\s*>/g;
+  let closingTagMatch: RegExpExecArray | null;
+
+  // Reset regex to start from beginning
+  closingTagRegex.lastIndex = 0;
+
+  while ((closingTagMatch = closingTagRegex.exec(documentText)) !== null) {
+    const tagName = closingTagMatch[1];
+    const matchOffset = closingTagMatch.index;
+
+    // If this closing tag is after the cursor
+    if (matchOffset >= cursorOffset) {
+      // Find the matching opening tag
+      const openingTagRegex = new RegExp(`<${tagName}[^>]*>`, "g");
+      const textBeforeClosingTag = documentText.substring(0, matchOffset);
+      let lastOpeningIndex = -1;
+      let openingTagMatch: RegExpExecArray | null;
+
+      while ((openingTagMatch = openingTagRegex.exec(textBeforeClosingTag)) !== null) {
+        lastOpeningIndex = openingTagMatch.index;
+      }
+
+      if (lastOpeningIndex !== -1) {
+        const openingTagRegex = /<([A-Za-z][\dA-Za-z]*)[^>]*>/;
+        const openingTagMatch = openingTagRegex.exec(textBeforeClosingTag.substring(lastOpeningIndex));
+        const openingTag = openingTagMatch?.[0] ?? "";
+        const openingEndOffset = lastOpeningIndex + openingTag.length;
+        const closingStartOffset = matchOffset;
+
+        // Check if cursor is between opening and closing tags
+        if (cursorOffset >= openingEndOffset && cursorOffset <= closingStartOffset) {
+          const openingEndPosition = offsetToPosition(editorState, openingEndOffset);
+          const closingStartPosition = offsetToPosition(editorState, closingStartOffset);
+
+          const range: Range = {
+            start: openingEndPosition,
+            end: closingStartPosition,
+          };
+
+          const text = getTextFromRange(editorState, range);
+
+          detectedPairs.push({
+            pairType: { type: "tag", name: tagName },
+            range,
+            text,
+          });
+        }
+      }
+    }
+  }
+
+  return detectedPairs;
+};
+
+/**
  * Finds the surrounding pair at the cursor position
  * @param editorState The current state of the editor
  * @param pair The pair type to find

@@ -9,7 +9,7 @@ import {
   getAndApplyTextEdits,
   getCurrentEditorState,
   isHtmlLikeDocument,
-  showPairQuickPick,
+  showDestinationPairQuickPick,
 } from "./common";
 
 /**
@@ -78,7 +78,7 @@ export async function executeAddOperation(): Promise<void> {
   highlighter.highlight(convertToVSCodeRange(targetRange));
 
   // Show pair selection for the destination
-  const destinationPair = await showPairQuickPick(isHtml);
+  const destinationPair = await showDestinationPairQuickPick(isHtml);
   if (!destinationPair) {
     getHighlighter().clearHighlights();
     return;

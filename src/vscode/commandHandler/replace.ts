@@ -2,7 +2,14 @@ import * as vscode from "vscode";
 import { findSurroundingPair } from "../../core/rangeSelector";
 import type { Range } from "../../core/types";
 import { getHighlighter } from "../highlighter";
-import { convertToVSCodeRange, getAndApplyTextEdits, getCurrentEditorState, isHtmlLikeDocument, showPairQuickPick } from "./common";
+import {
+  convertToVSCodeRange,
+  getAndApplyTextEdits,
+  getCurrentEditorState,
+  isHtmlLikeDocument,
+  showDestinationPairQuickPick,
+  showSourcePairQuickPick,
+} from "./common";
 
 /**
  * Execute replace operation
@@ -18,7 +25,7 @@ export async function executeReplaceOperation(): Promise<void> {
   const isHtml = isHtmlLikeDocument();
 
   // Show pair selection for the source
-  const sourcePair = await showPairQuickPick(isHtml);
+  const sourcePair = await showSourcePairQuickPick(isHtml);
   if (!sourcePair) {
     return;
   }
@@ -39,7 +46,7 @@ export async function executeReplaceOperation(): Promise<void> {
   highlighter.highlight(convertToVSCodeRange(targetRange));
 
   // Show pair selection for the destination
-  const destinationPair = await showPairQuickPick(isHtml);
+  const destinationPair = await showDestinationPairQuickPick(isHtml);
   if (!destinationPair) {
     highlighter.clearHighlights();
     return;

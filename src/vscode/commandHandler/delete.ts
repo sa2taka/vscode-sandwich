@@ -1,8 +1,9 @@
 import * as vscode from "vscode";
 import { findSurroundingPair } from "../../core/rangeSelector";
 import type { Range } from "../../core/types";
+import { getConfig } from "../config";
 import { getHighlighter } from "../highlighter";
-import { convertToVSCodeRange, getAndApplyTextEdits, getCurrentEditorState, isHtmlLikeDocument, showPairQuickPick } from "./common";
+import { convertToVSCodeRange, getAndApplyTextEdits, getCurrentEditorState, isHtmlLikeDocument, showSourcePairQuickPick } from "./common";
 
 /**
  * Execute delete operation
@@ -14,11 +15,13 @@ export async function executeDeleteOperation(): Promise<void> {
     return;
   }
 
+  const enterToConfirm = getConfig("enterToConfirm");
+
   // Check if current document is HTML-like
   const isHtml = isHtmlLikeDocument();
 
   // Show pair selection for the source
-  const sourcePair = await showPairQuickPick(isHtml);
+  const sourcePair = await showSourcePairQuickPick(isHtml);
   if (!sourcePair) {
     return;
   }
@@ -34,20 +37,21 @@ export async function executeDeleteOperation(): Promise<void> {
 
   const targetRange: Range = surroundingPair.range;
 
-  // Highlight the selected range
-  const highlighter = getHighlighter();
-  highlighter.highlight(convertToVSCodeRange(targetRange));
-
   // Confirm deletion
-  const confirmation = await vscode.window.showQuickPick(["Yes", "No"], { placeHolder: "Delete this pair?" });
+  if (enterToConfirm) {
+    // Highlight the selected range
+    const highlighter = getHighlighter();
+    highlighter.highlight(convertToVSCodeRange(targetRange));
+    const confirmation = await vscode.window.showQuickPick(["Yes", "No"], { placeHolder: "Delete this pair?" });
 
-  if (confirmation !== "Yes") {
+    if (confirmation !== "Yes") {
+      highlighter.clearHighlights();
+      return;
+    }
+
+    // Clear highlights
     highlighter.clearHighlights();
-    return;
   }
-
-  // Clear highlights
-  highlighter.clearHighlights();
 
   // Apply text edits
   await getAndApplyTextEdits("delete", targetRange, sourcePair);

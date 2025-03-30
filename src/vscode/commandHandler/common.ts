@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { findAllSurroundingPairs } from "../../core/rangeSelector";
 import { getTextEdits } from "../../core/textManipulator";
 import type { Position as CorePosition, Range as CoreRange, EditorState, OperationType, PairType, TextEdit } from "../../core/types";
 import { getConfig } from "../config";
@@ -165,9 +166,100 @@ export function isHtmlLikeDocument(): boolean {
 }
 
 /**
- * Show pair selection quick pick
+ * Show pair selection quick pick for source pair (shows only detected pairs)
+ * @param isHtml Whether the current document is HTML-like
  */
-export async function showPairQuickPick(isHtml: boolean): Promise<PairType | undefined> {
+export async function showSourcePairQuickPick(isHtml: boolean): Promise<PairType | undefined> {
+  const editorState = getCurrentEditorState();
+  if (!editorState) {
+    return undefined;
+  }
+
+  // Find all surrounding pairs at the cursor position
+  const detectedPairs = findAllSurroundingPairs(editorState);
+
+  // Create quick pick items from detected pairs
+  const pairs: ValueQuickPickItem<PairType>[] = [];
+
+  // Add basic pair options (quotes) if they exist in the detected pairs
+  const basicPairMap: Record<string, string> = {
+    "'": "Single quotes",
+    '"': "Double quotes",
+    "`": "Back quotes",
+  };
+
+  for (const pair of detectedPairs) {
+    if (typeof pair.pairType === "string") {
+      // Basic pair (quotes)
+      pairs.push({
+        label: pair.pairType,
+        description: basicPairMap[pair.pairType],
+        value: pair.pairType,
+      });
+    } else if (isHtml) {
+      // Tag pair
+      pairs.push({
+        label: "t",
+        description: `HTML tag: ${pair.pairType.name}`,
+        value: pair.pairType,
+      });
+    }
+  }
+
+  // If no pairs were detected, show default options
+  if (pairs.length === 0) {
+    pairs.push(
+      { label: "'", description: "Single quotes", value: "'" },
+      { label: '"', description: "Double quotes", value: '"' },
+      { label: "`", description: "Back quotes", value: "`" }
+    );
+
+    // Add tag option for HTML-like files
+    if (isHtml) {
+      pairs.push({
+        label: "t",
+        description: "HTML tag",
+        value: { type: "tag", name: "" },
+      });
+    }
+  }
+
+  // Remove duplicates (keep only the first occurrence of each pair type)
+  const uniquePairs = pairs.filter(
+    (pair, index, self) =>
+      index ===
+      self.findIndex(
+        (p) =>
+          typeof p.value === typeof pair.value &&
+          (typeof p.value === "string" ? p.value === pair.value : p.value.name === (pair.value as { type: string; name: string }).name)
+      )
+  );
+
+  const selectedValue = await createCommonQuickPick(uniquePairs, "Select pair");
+
+  // Check if selected value is a tag pair with empty name
+  if (selectedValue && typeof selectedValue === "object" && "type" in selectedValue && selectedValue.name === "") {
+    // For tag pair with empty name, ask for tag name
+    const tagName = await vscode.window.showInputBox({
+      placeHolder: "Enter tag name",
+      prompt: "Enter tag name (e.g., div, span, p)",
+    });
+
+    if (!tagName) {
+      return undefined;
+    }
+
+    return { type: "tag", name: tagName };
+  }
+
+  return selectedValue;
+}
+
+/**
+ * Show pair selection quick pick for destination pair (shows all options)
+ * @param isHtml Whether the current document is HTML-like
+ */
+export async function showDestinationPairQuickPick(isHtml: boolean): Promise<PairType | undefined> {
   const pairs: ValueQuickPickItem<PairType>[] = [
     { label: "'", description: "Single quotes", value: "'" },
     { label: '"', description: "Double quotes", value: '"' },
@@ -201,6 +293,16 @@ export async function showPairQuickPick(isHtml: boolean): Promise<PairType | und
   }
 
   return selectedValue;
+}
+
+/**
+ * Show pair selection quick pick (legacy function for backward compatibility)
+ * @param isHtml Whether the current document is HTML-like
+ * @param forSource Whether this is for selecting a source pair (true) or destination pair (false)
+ * @deprecated Use showSourcePairQuickPick or showDestinationPairQuickPick instead
+ */
+export async function showPairQuickPick(isHtml: boolean, forSource = true): Promise<PairType | undefined> {
+  return forSource ? showSourcePairQuickPick(isHtml) : showDestinationPairQuickPick(isHtml);
 }
 
 /**
