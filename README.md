@@ -41,6 +41,8 @@ The extension uses a command-based workflow:
 4. Install
 ```
 
+Or go to https://marketplace.visualstudio.com/items?itemName=sa2taka.vscode-sandwich.
+
 ## Configuration
 
 The extension can be configured through VS Code settings:

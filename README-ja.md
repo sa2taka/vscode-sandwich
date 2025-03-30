@@ -37,6 +37,8 @@ VSCode Sandwichは、人気のあるVimプラグイン[vim-sandwich](https://git
 4. インストールする
 ```
 
+または https://marketplace.visualstudio.com/items?itemName=sa2taka.vscode-sandwich にアクセス。
+
 ## 設定
 
 この拡張機能はVS Code設定を通じて設定できます：
