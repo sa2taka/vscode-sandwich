@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { selectRange } from "../../core/rangeSelector";
+import { DetectedPair, findAllSurroundingPairs, findSurroundingPair, selectRange } from "../../core/rangeSelector";
 import type { EditorState, Position, Range } from "../../core/types";
 
 // Helper function to create a simple Range
@@ -157,5 +157,135 @@ suite("Core: Range Selector Test Suite", () => {
     const expectedRange = createRange(1, 5, 4, 2);
     assert.deepStrictEqual(result.range, expectedRange, "Range should select inner content of the multi-line tag");
     assert.strictEqual(result.text, "\n    Hello\n    world\n  ", "Text should be the inner content of the multi-line tag");
+  });
+
+  // Tests for findSurroundingPair
+  test("findSurroundingPair should detect when cursor is inside single quotes", () => {
+    const doc = "const text = 'hello world'; console.log(text);";
+    const cursor = createPosition(0, 15); // Cursor inside the quotes at 'hello world'
+    const selection = createRange(0, 15, 0, 15);
+    const editorState = createMockEditorState(doc, cursor, selection);
+
+    const result = findSurroundingPair(editorState, "'");
+
+    assert.ok(result, "Result should not be null");
+    const expectedRange = createRange(0, 14, 0, 25);
+    assert.deepStrictEqual(result.range, expectedRange, "Range should be between the quotes");
+    assert.strictEqual(result.text, "hello world", "Text should be the content between quotes");
+  });
+
+  test("findSurroundingPair should detect when cursor is inside double quotes", () => {
+    const doc = 'const text = "hello world"; console.log(text);';
+    const cursor = createPosition(0, 15); // Cursor inside the quotes at "hello world"
+    const selection = createRange(0, 15, 0, 15);
+    const editorState = createMockEditorState(doc, cursor, selection);
+
+    const result = findSurroundingPair(editorState, '"');
+
+    assert.ok(result, "Result should not be null");
+    const expectedRange = createRange(0, 14, 0, 25);
+    assert.deepStrictEqual(result.range, expectedRange, "Range should be between the quotes");
+    assert.strictEqual(result.text, "hello world", "Text should be the content between quotes");
+  });
+
+  test("findSurroundingPair should detect quotes even when cursor is outside them with improved algorithm", () => {
+    const doc = "import hoge from 'fuga'; hello, world; console.log('hoo');";
+    const cursor = createPosition(0, 25); // Cursor at "hello, world"
+    const selection = createRange(0, 25, 0, 25);
+    const editorState = createMockEditorState(doc, cursor, selection);
+
+    const result = findSurroundingPair(editorState, "'");
+
+    assert.ok(result, "Result should not be null");
+    const expectedRange = createRange(0, 18, 0, 51);
+    assert.deepStrictEqual(result.range, expectedRange, "Range should be between the quotes");
+    assert.strictEqual(result.text, "fuga'; hello, world; console.log(", "Text should be the content between quotes");
+  });
+
+  test("findSurroundingPair should detect when cursor is inside tag pair", () => {
+    const doc = "<div><p>Hello world</p></div>";
+    const cursor = createPosition(0, 10); // Cursor inside the p tag content
+    const selection = createRange(0, 10, 0, 10);
+    const editorState = createMockEditorState(doc, cursor, selection);
+
+    const result = findSurroundingPair(editorState, { type: "tag", name: "p" });
+
+    assert.ok(result, "Result should not be null");
+    const expectedRange = createRange(0, 8, 0, 19);
+    assert.deepStrictEqual(result.range, expectedRange, "Range should be between the p tags");
+    assert.strictEqual(result.text, "Hello world", "Text should be the content between p tags");
+  });
+
+  test("findSurroundingPair should not detect tag when cursor is outside it", () => {
+    const doc = "<div><p>Hello world</p><span>outside</span></div>";
+    const cursor = createPosition(0, 30); // Cursor at "outside"
+    const selection = createRange(0, 30, 0, 30);
+    const editorState = createMockEditorState(doc, cursor, selection);
+
+    const result = findSurroundingPair(editorState, { type: "tag", name: "p" });
+
+    assert.strictEqual(result, null, "Result should be null when cursor is not between p tags");
+  });
+
+  // Tests for findAllSurroundingPairs
+  test("findAllSurroundingPairs should detect all pairs surrounding the cursor", () => {
+    const doc = "<div><p>Hello 'world'</p></div>";
+    const cursor = createPosition(0, 15); // Cursor inside the single quotes
+    const selection = createRange(0, 15, 0, 15);
+    const editorState = createMockEditorState(doc, cursor, selection);
+
+    const results: DetectedPair[] = findAllSurroundingPairs(editorState);
+
+    assert.strictEqual(results.length, 3, "Should detect 3 pairs: single quotes, p tag, and div tag");
+
+    // Check for single quotes
+    const singleQuotePair = results.find((pair: DetectedPair) => pair.pairType === "'");
+    assert.ok(singleQuotePair, "Should detect single quote pair");
+    assert.strictEqual(singleQuotePair.text, "world", "Text should be 'world'");
+
+    // Check for p tag
+    const pTagPair = results.find((pair: DetectedPair) => typeof pair.pairType === "object" && pair.pairType.name === "p");
+    assert.ok(pTagPair, "Should detect p tag pair");
+    assert.strictEqual(pTagPair.text, "Hello 'world'", "Text should be the p tag content");
+
+    // Check for div tag
+    const divTagPair = results.find((pair: DetectedPair) => typeof pair.pairType === "object" && pair.pairType.name === "div");
+    assert.ok(divTagPair, "Should detect div tag pair");
+    assert.strictEqual(divTagPair.text, "<p>Hello 'world'</p>", "Text should be the div tag content");
+  });
+
+  test("findAllSurroundingPairs should detect pairs even when cursor is outside them with improved algorithm", () => {
+    const doc = "import hoge from 'fuga'; hello, world; console.log('hoo');";
+    const cursor = createPosition(0, 25); // Cursor at "hello, world"
+    const selection = createRange(0, 25, 0, 25);
+    const editorState = createMockEditorState(doc, cursor, selection);
+
+    const results: DetectedPair[] = findAllSurroundingPairs(editorState);
+
+    assert.strictEqual(results.length, 1, "Should detect 1 pair");
+  });
+
+  test("findAllSurroundingPairs should handle nested tags correctly", () => {
+    const doc = "<div><div><p>Hello world</p></div></div>";
+    const cursor = createPosition(0, 15); // Cursor inside the p tag content
+    const selection = createRange(0, 15, 0, 15);
+    const editorState = createMockEditorState(doc, cursor, selection);
+
+    const results: DetectedPair[] = findAllSurroundingPairs(editorState);
+
+    // Should detect p tag and inner div tag
+    assert.strictEqual(results.length, 2, "Should detect 2 pairs: p tag and inner div tag");
+
+    // Check for p tag
+    const pTagPair = results.find((pair: DetectedPair) => typeof pair.pairType === "object" && pair.pairType.name === "p");
+    assert.ok(pTagPair, "Should detect p tag pair");
+
+    // Check for inner div tag
+    const innerDivTagPair = results.find(
+      (pair: DetectedPair) => typeof pair.pairType === "object" && pair.pairType.name === "div" && pair.text === "<p>Hello world</p>"
+    );
+    assert.ok(innerDivTagPair, "Should detect inner div tag pair");
+
+    // Outer div tag is not detected with the improved algorithm
   });
 });
