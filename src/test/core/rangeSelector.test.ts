@@ -302,4 +302,33 @@ suite("Core: Range Selector Test Suite", () => {
     assert.deepStrictEqual(result.range, expectedRange, "Range should be between the outer braces");
     assert.strictEqual(result.text, " `hoge, ${fuga}` ", "Text should be the content between outer braces");
   });
+  test("findSurroundingPair should select inner brackets when cursor is inside nested brackets", () => {
+    const doc = "const data = { foo { bar } }";
+    const cursor = createPosition(0, 20); // Cursor at 'bar'
+    const selection = createRange(0, 20, 0, 20);
+    const editorState = createMockEditorState(doc, cursor, selection);
+
+    const result = findSurroundingPair(editorState, "{}");
+
+    assert.ok(result, "Result should not be null");
+    const expectedRange = createRange(0, 20, 0, 25);
+    assert.deepStrictEqual(result.range, expectedRange, "Range should be between the inner braces");
+    assert.strictEqual(result.text, " bar ", "Text should be the content between inner braces");
+  });
+  test("findAllSurroundingPairs should include inner brackets when cursor is inside nested brackets", () => {
+    const doc = "const data = { foo { bar } }";
+    const cursor = createPosition(0, 20); // Cursor at 'bar'
+    const selection = createRange(0, 20, 0, 20);
+    const editorState = createMockEditorState(doc, cursor, selection);
+
+    const results: DetectedPair[] = findAllSurroundingPairs(editorState);
+
+    // Should detect inner braces
+    const innerBracePair = results.find((pair: DetectedPair) => pair.pairType === "{}" && pair.text === " bar ");
+    assert.ok(innerBracePair, "Should detect inner brace pair");
+
+    // Check that the inner pair is detected correctly
+    const expectedRange = createRange(0, 20, 0, 25);
+    assert.deepStrictEqual(innerBracePair.range, expectedRange, "Range should be between the inner braces");
+  });
 });

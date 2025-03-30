@@ -558,8 +558,17 @@ const findSurroundingQuotePair = (
   // Find balanced pairs of brackets
   const balancedPairs = findBalancedPairs(documentText, opening, closing);
 
-  // Find the pair that surrounds the cursor
-  const surroundingPair = balancedPairs.find((pair) => pair.start < cursorOffset && cursorOffset < pair.end);
+  // Find all pairs that surround the cursor
+  const surroundingPairs = balancedPairs.filter((pair) => pair.start < cursorOffset && cursorOffset < pair.end);
+
+  // If we have multiple pairs, select the innermost one (smallest range)
+  const surroundingPair =
+    surroundingPairs.length > 0
+      ? surroundingPairs.reduce(
+          (smallest, current) => (current.end - current.start < smallest.end - smallest.start ? current : smallest),
+          surroundingPairs[0]
+        )
+      : null;
 
   if (!surroundingPair) {
     // Fallback to the old method if no balanced pair is found
@@ -605,7 +614,7 @@ const findAllOccurrences = (text: string, searchString: string): number[] => {
 
 /**
  * Finds balanced pairs of brackets in text
- * This handles nested brackets correctly
+ * This handles nested brackets correctly and returns all pairs, including nested ones
  */
 const findBalancedPairs = (text: string, opening: string, closing: string): { start: number; end: number }[] => {
   const pairs: { start: number; end: number }[] = [];
@@ -628,8 +637,8 @@ const findBalancedPairs = (text: string, opening: string, closing: string): { st
     } else if (stack.length > 0) {
       // This is a closing bracket and we have an opening bracket on the stack
       const openingIndex = stack.pop();
-      if (openingIndex !== undefined && stack.length === 0) {
-        // Only add pairs that are at the same nesting level
+      if (openingIndex !== undefined) {
+        // Add all pairs, not just the outermost ones
         pairs.push({ start: openingIndex, end: index });
       }
     }
