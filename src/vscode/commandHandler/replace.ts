@@ -1,6 +1,8 @@
 import * as vscode from "vscode";
+import { findSurroundingPair } from "../../core/rangeSelector";
 import type { Range } from "../../core/types";
-import { getAndApplyTextEdits, getCurrentEditorState, isHtmlLikeDocument, showPairQuickPick } from "./common";
+import { getHighlighter } from "../highlighter";
+import { convertToVSCodeRange, getAndApplyTextEdits, getCurrentEditorState, isHtmlLikeDocument, showPairQuickPick } from "./common";
 
 /**
  * Execute replace operation
@@ -15,26 +17,36 @@ export async function executeReplaceOperation(): Promise<void> {
   // Check if current document is HTML-like
   const isHtml = isHtmlLikeDocument();
 
-  // For replace, we need to get the range from the current selection
-  const selection = editorState.selection;
-  if (selection.start.line === selection.end.line && selection.start.character === selection.end.character) {
-    vscode.window.showErrorMessage("No selection for replace operation");
-    return;
-  }
-
-  const targetRange: Range = selection;
-
   // Show pair selection for the source
   const sourcePair = await showPairQuickPick(isHtml);
   if (!sourcePair) {
     return;
   }
 
+  // Find surrounding pair at cursor position
+  const surroundingPair = findSurroundingPair(editorState, sourcePair);
+  if (!surroundingPair) {
+    vscode.window.showErrorMessage(
+      `No surrounding ${typeof sourcePair === "string" ? sourcePair : sourcePair.name} pair found at cursor position`
+    );
+    return;
+  }
+
+  const targetRange: Range = surroundingPair.range;
+
+  // Highlight the selected range
+  const highlighter = getHighlighter();
+  highlighter.highlight(convertToVSCodeRange(targetRange));
+
   // Show pair selection for the destination
   const destinationPair = await showPairQuickPick(isHtml);
   if (!destinationPair) {
+    highlighter.clearHighlights();
     return;
   }
+
+  // Clear highlights
+  highlighter.clearHighlights();
 
   // Apply text edits
   await getAndApplyTextEdits("replace", targetRange, destinationPair, sourcePair);

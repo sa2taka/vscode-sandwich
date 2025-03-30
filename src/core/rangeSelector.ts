@@ -1,4 +1,4 @@
-import type { EditorState, Position, Range, RangeType, SelectionRangeResult } from "./types";
+import type { EditorState, PairType, Position, Range, RangeType, SelectionRangeResult } from "./types";
 
 /**
  * Calculates the range to operate on based on the specified range type.
@@ -316,4 +316,66 @@ const offsetToPosition = (editorState: EditorState, offset: number): Position =>
 
   // Fallback (should not reach here in normal circumstances)
   return { line: 0, character: 0 };
+};
+
+/**
+ * Finds the surrounding pair at the cursor position
+ * @param editorState The current state of the editor
+ * @param pair The pair type to find
+ * @returns The result of the selection range or null if not found
+ */
+export const findSurroundingPair = (editorState: EditorState, pair: PairType): SelectionRangeResult | null => {
+  const { documentText, cursorPosition } = editorState;
+
+  // Convert cursor position to document offset
+  const cursorOffset = positionToOffset(editorState, cursorPosition);
+
+  // Get opening and closing parts based on pair type
+  let opening: string;
+  let closing: string;
+
+  if (typeof pair === "string") {
+    // Basic pair (quotes)
+    opening = pair;
+    closing = pair;
+  } else {
+    // Tag pair
+    opening = `<${pair.name}>`;
+    closing = `</${pair.name}>`;
+  }
+
+  // Find the closest opening part before cursor
+  const textBeforeCursor = documentText.substring(0, cursorOffset);
+  const lastOpeningIndex = textBeforeCursor.lastIndexOf(opening);
+
+  if (lastOpeningIndex === -1) {
+    return null; // No opening part found before cursor
+  }
+
+  // Find the closest closing part after the opening part
+  const textAfterOpening = documentText.substring(lastOpeningIndex + opening.length);
+  const nextClosingIndex = textAfterOpening.indexOf(closing);
+
+  if (nextClosingIndex === -1) {
+    return null; // No closing part found after opening
+  }
+
+  // Calculate absolute positions
+  const openingEndOffset = lastOpeningIndex + opening.length;
+  const closingStartOffset = openingEndOffset + nextClosingIndex;
+
+  // Convert offsets to positions
+  const openingEndPosition = offsetToPosition(editorState, openingEndOffset);
+  const closingStartPosition = offsetToPosition(editorState, closingStartOffset);
+
+  // Create range from end of opening part to start of closing part
+  const range: Range = {
+    start: openingEndPosition,
+    end: closingStartPosition,
+  };
+
+  // Get the text content
+  const text = getTextFromRange(editorState, range);
+
+  return { range, text };
 };
