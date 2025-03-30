@@ -12,6 +12,15 @@ export type ValueQuickPickItem<T> = vscode.QuickPickItem & {
 };
 
 /**
+ * Type for detected pair information
+ */
+type DetectedPairInfo = {
+  pairType: PairType;
+  range: CoreRange;
+  text: string;
+};
+
+/**
  * Convert VSCode Range to Core Range
  */
 export function convertToCoreRange(range: vscode.Range): CoreRange {
@@ -67,6 +76,13 @@ export function getCurrentEditorState(): EditorState | null {
 }
 
 /**
+ * Filter QuickPick items based on input value
+ */
+function getFilteredItems<T>(items: readonly ValueQuickPickItem<T>[], value: string): ValueQuickPickItem<T>[] {
+  return items.filter((item) => item.label.toLowerCase().includes(value.toLowerCase()));
+}
+
+/**
  * Create a common quick pick with enhanced behavior
  * This function creates a QuickPick that can automatically select an item when there's only one option
  * based on the ENTER_TO_CONFIRM configuration
@@ -85,10 +101,23 @@ export async function createCommonQuickPick<T>(
   return new Promise<T | undefined>((resolve) => {
     let selectedValue: T | undefined;
 
+    // Handle auto-selection when there's only one matching item
+    const handleAutoSelection = (value: string) => {
+      if (!enterToConfirm && quickPick.items.length > 0) {
+        const filteredItems = getFilteredItems(quickPick.items, value);
+
+        if (filteredItems.length === 1) {
+          selectedValue = filteredItems[0].value;
+          quickPick.hide();
+          resolve(selectedValue);
+        }
+      }
+    };
+
     quickPick.onDidChangeActive((activeItems) => {
       // If ENTER_TO_CONFIRM is false and there's only one active item, select it automatically
       if (!enterToConfirm && activeItems.length === 1) {
-        const filteredItems = quickPick.items.filter((item) => item.label.toLowerCase().includes(quickPick.value.toLowerCase()));
+        const filteredItems = getFilteredItems(quickPick.items, quickPick.value);
 
         if (filteredItems.length === 1) {
           selectedValue = filteredItems[0].value;
@@ -103,16 +132,8 @@ export async function createCommonQuickPick<T>(
         onFilterChange(value, quickPick);
       }
 
-      // If ENTER_TO_CONFIRM is false and there's only one matching item after filtering, select it automatically
-      if (!enterToConfirm && quickPick.items.length > 0) {
-        const filteredItems = quickPick.items.filter((item) => item.label.toLowerCase().includes(value.toLowerCase()));
-
-        if (filteredItems.length === 1) {
-          selectedValue = filteredItems[0].value;
-          quickPick.hide();
-          resolve(selectedValue);
-        }
-      }
+      // Auto-select if there's only one matching item
+      handleAutoSelection(value);
     });
 
     quickPick.onDidAccept(() => {
@@ -153,35 +174,15 @@ export function isHtmlLikeDocument(): boolean {
     return false;
   }
 
-  const document = editor.document;
-  const languageId = document.languageId;
-  return (
-    languageId === "html" ||
-    languageId === "xml" ||
-    languageId === "javascriptreact" ||
-    languageId === "typescriptreact" ||
-    languageId === "vue" ||
-    languageId === "svelte"
-  );
+  const htmlLikeLanguages = ["html", "xml", "javascriptreact", "typescriptreact", "vue", "svelte"];
+
+  return htmlLikeLanguages.includes(editor.document.languageId);
 }
 
 /**
- * Show pair selection quick pick for source pair (shows only detected pairs)
- * @param isHtml Whether the current document is HTML-like
+ * Create basic pair options for QuickPick
  */
-export async function showSourcePairQuickPick(isHtml: boolean): Promise<PairType | undefined> {
-  const editorState = getCurrentEditorState();
-  if (!editorState) {
-    return undefined;
-  }
-
-  // Find all surrounding pairs at the cursor position
-  const detectedPairs = findAllSurroundingPairs(editorState);
-
-  // Create quick pick items from detected pairs
-  const pairs: ValueQuickPickItem<PairType>[] = [];
-
-  // Add basic pair options (quotes and brackets) if they exist in the detected pairs
+function createBasicPairOptions(): ValueQuickPickItem<PairType>[] {
   const basicPairMap: Record<string, string> = {
     "'": "Single quotes",
     '"': "Double quotes",
@@ -192,6 +193,95 @@ export async function showSourcePairQuickPick(isHtml: boolean): Promise<PairType
     "<>": "Angle brackets",
   };
 
+  return Object.entries(basicPairMap).map(([value, description]) => ({
+    label: value,
+    description,
+    value: value as PairType,
+  }));
+}
+
+/**
+ * Create HTML tag option for QuickPick
+ */
+function createHtmlTagOption(tagName = ""): ValueQuickPickItem<PairType> {
+  return {
+    label: "t",
+    description: "HTML tag",
+    value: { type: "tag", name: tagName },
+  };
+}
+
+/**
+ * Show pair selection quick pick for source pair (shows only detected pairs)
+ */
+export async function showSourcePairQuickPick(isHtml: boolean): Promise<PairType | undefined> {
+  const editorState = getCurrentEditorState();
+  if (!editorState) {
+    return undefined;
+  }
+
+  // Find all surrounding pairs at the cursor position
+  const detectedPairs = findAllSurroundingPairs(editorState);
+
+  // If no pairs were detected, show default options
+  if (detectedPairs.length === 0) {
+    return showDefaultPairOptions(isHtml);
+  }
+
+  // Create quick pick items from detected pairs
+  const pairs = createQuickPickItemsFromDetectedPairs(detectedPairs, isHtml);
+
+  // Remove duplicates
+  const uniquePairs = removeDuplicatePairOptions(pairs);
+
+  const selectedValue = await createCommonQuickPick(uniquePairs, "Select pair");
+
+  // Handle tag selection if needed
+  if (selectedValue && typeof selectedValue === "object" && !selectedValue.name) {
+    return await handleTagNameSelection(detectedPairs);
+  }
+
+  return selectedValue;
+}
+
+/**
+ * Show default pair options when no pairs are detected
+ */
+async function showDefaultPairOptions(isHtml: boolean): Promise<PairType | undefined> {
+  const pairs = createBasicPairOptions();
+
+  // Add tag option for HTML-like files
+  if (isHtml) {
+    pairs.push(createHtmlTagOption());
+  }
+
+  const selectedValue = await createCommonQuickPick(pairs, "Select pair");
+
+  // Handle tag selection if needed
+  if (selectedValue && typeof selectedValue === "object" && !selectedValue.name) {
+    return await promptForTagName();
+  }
+
+  return selectedValue;
+}
+
+/**
+ * Create QuickPick items from detected pairs
+ */
+function createQuickPickItemsFromDetectedPairs(detectedPairs: DetectedPairInfo[], isHtml: boolean): ValueQuickPickItem<PairType>[] {
+  const pairs: ValueQuickPickItem<PairType>[] = [];
+  const basicPairMap: Record<string, string> = {
+    "'": "Single quotes",
+    '"': "Double quotes",
+    "`": "Back quotes",
+    "()": "Parentheses",
+    "{}": "Braces",
+    "[]": "Brackets",
+    "<>": "Angle brackets",
+  };
+
+  let hasTagOption = false;
+
   for (const pair of detectedPairs) {
     if (typeof pair.pairType === "string") {
       // Basic pair (quotes)
@@ -200,44 +290,25 @@ export async function showSourcePairQuickPick(isHtml: boolean): Promise<PairType
         description: basicPairMap[pair.pairType],
         value: pair.pairType,
       });
-    } else if (isHtml) {
-      // Tag pair
-      // Check if a tag option already exists to avoid duplicates
-      const tagOptionExists = pairs.some((item) => item.label === "t");
-      if (!tagOptionExists) {
-        pairs.push({
-          label: "t",
-          description: `HTML tag`,
-          value: pair.pairType,
-        });
-      }
-    }
-  }
-
-  // If no pairs were detected, show default options
-  if (pairs.length === 0) {
-    pairs.push(
-      { label: "'", description: "Single quotes", value: "'" },
-      { label: '"', description: "Double quotes", value: '"' },
-      { label: "`", description: "Back quotes", value: "`" },
-      { label: "()", description: "Parentheses", value: "()" },
-      { label: "{}", description: "Braces", value: "{}" },
-      { label: "[]", description: "Brackets", value: "[]" },
-      { label: "<>", description: "Angle brackets", value: "<>" }
-    );
-
-    // Add tag option for HTML-like files
-    if (isHtml) {
+    } else if (isHtml && !hasTagOption) {
+      // Tag pair (add only once)
       pairs.push({
         label: "t",
-        description: "HTML tag",
-        value: { type: "tag", name: "" },
+        description: `HTML tag`,
+        value: pair.pairType,
       });
+      hasTagOption = true;
     }
   }
 
-  // Remove duplicates (keep only the first occurrence of each pair type)
-  const uniquePairs = pairs.filter(
+  return pairs;
+}
+
+/**
+ * Remove duplicate pair options
+ */
+function removeDuplicatePairOptions(pairs: ValueQuickPickItem<PairType>[]): ValueQuickPickItem<PairType>[] {
+  return pairs.filter(
     (pair, index, self) =>
       index ===
       self.findIndex(
@@ -246,95 +317,86 @@ export async function showSourcePairQuickPick(isHtml: boolean): Promise<PairType
           (typeof p.value === "string" ? p.value === pair.value : p.value.name === (pair.value as { type: string; name: string }).name)
       )
   );
+}
 
-  const selectedValue = await createCommonQuickPick(uniquePairs, "Select pair");
+/**
+ * Handle tag name selection from detected pairs
+ */
+async function handleTagNameSelection(detectedPairs: DetectedPairInfo[]): Promise<PairType | undefined> {
+  const tagOptions = createTagNameOptions(detectedPairs);
 
-  // Check if selected value is a tag pair with empty name
-  if (selectedValue && typeof selectedValue === "object" && "type" in selectedValue) {
-    // For tag pair with empty name, show tag name selection using detected tag names
-    const tagOptions: ValueQuickPickItem<string>[] = [];
-
-    // Extract unique tag names from detected pairs
-    for (const pair of detectedPairs.toReversed()) {
-      if (typeof pair.pairType === "object" && "name" in pair.pairType) {
-        // Check if this tag name is already in the options
-        const tagName = pair.pairType.name;
-        if (!tagOptions.some((option) => option.value === tagName)) {
-          tagOptions.push({
-            label: tagName,
-            description: `<${tagName}> tag`,
-            value: tagName,
-          });
-        }
-      }
-    }
-
-    // If no tags were detected, allow manual input
-    if (tagOptions.length === 0) {
-      const tagName = await vscode.window.showInputBox({
-        placeHolder: "Enter tag name",
-        prompt: "Enter tag name (e.g., div, span, p)",
-      });
-
-      if (!tagName) {
-        return undefined;
-      }
-
-      return { type: "tag", name: tagName };
-    }
-
-    // Show quick pick with detected tag names
-    const selectedTagName = await createCommonQuickPick(tagOptions, "Select tag name");
-
-    if (!selectedTagName) {
-      return undefined;
-    }
-
-    return { type: "tag", name: selectedTagName };
+  // If no tags were detected, allow manual input
+  if (tagOptions.length === 0) {
+    return await promptForTagName();
   }
 
-  return selectedValue;
+  // Show quick pick with detected tag names
+  const selectedTagName = await createCommonQuickPick(tagOptions, "Select tag name");
+
+  if (!selectedTagName) {
+    return undefined;
+  }
+
+  return { type: "tag", name: selectedTagName };
+}
+
+/**
+ * Create tag name options from detected pairs
+ */
+function createTagNameOptions(detectedPairs: DetectedPairInfo[]): ValueQuickPickItem<string>[] {
+  const tagOptions: ValueQuickPickItem<string>[] = [];
+  const tagNames = new Set<string>();
+
+  // Extract unique tag names from detected pairs
+  for (const pair of detectedPairs.toReversed()) {
+    if (typeof pair.pairType === "object" && "name" in pair.pairType) {
+      const tagName = pair.pairType.name;
+      if (!tagNames.has(tagName)) {
+        tagNames.add(tagName);
+        tagOptions.push({
+          label: tagName,
+          description: `<${tagName}> tag`,
+          value: tagName,
+        });
+      }
+    }
+  }
+
+  return tagOptions;
+}
+
+/**
+ * Prompt user for tag name
+ */
+async function promptForTagName(): Promise<PairType | undefined> {
+  const tagName = await vscode.window.showInputBox({
+    placeHolder: "Enter tag name",
+    prompt: "Enter tag name (e.g., div, span, p)",
+  });
+
+  if (!tagName) {
+    return undefined;
+  }
+
+  return { type: "tag", name: tagName };
 }
 
 /**
  * Show pair selection quick pick for destination pair (shows all options)
- * @param isHtml Whether the current document is HTML-like
  */
 export async function showDestinationPairQuickPick(isHtml: boolean): Promise<PairType | undefined> {
-  const pairs: ValueQuickPickItem<PairType>[] = [
-    { label: "'", description: "Single quotes", value: "'" },
-    { label: '"', description: "Double quotes", value: '"' },
-    { label: "`", description: "Back quotes", value: "`" },
-    { label: "()", description: "Parentheses", value: "()" },
-    { label: "{}", description: "Braces", value: "{}" },
-    { label: "[]", description: "Brackets", value: "[]" },
-    { label: "<>", description: "Angle brackets", value: "<>" },
-  ];
+  const pairs = createBasicPairOptions();
 
   // Add tag option for HTML-like files
   if (isHtml) {
-    pairs.push({
-      label: "t",
-      description: "HTML tag",
-      value: { type: "tag", name: "" },
-    });
+    pairs.push(createHtmlTagOption());
   }
 
   const selectedValue = await createCommonQuickPick(pairs, "Select pair");
 
-  // Check if selected value is a tag pair
-  if (selectedValue && typeof selectedValue === "object" && "type" in selectedValue) {
-    // For tag pair, ask for tag name
-    const tagName = await vscode.window.showInputBox({
-      placeHolder: "Enter tag name",
-      prompt: "Enter tag name (e.g., div, span, p)",
-    });
-
-    if (!tagName) {
-      return undefined;
-    }
-
-    return { type: "tag", name: tagName };
+  // Handle tag selection if needed
+  if (selectedValue && typeof selectedValue === "object" && !selectedValue.name) {
+    return await promptForTagName();
   }
 
   return selectedValue;
@@ -342,8 +404,6 @@ export async function showDestinationPairQuickPick(isHtml: boolean): Promise<Pai
 
 /**
  * Show pair selection quick pick (legacy function for backward compatibility)
- * @param isHtml Whether the current document is HTML-like
- * @param forSource Whether this is for selecting a source pair (true) or destination pair (false)
  * @deprecated Use showSourcePairQuickPick or showDestinationPairQuickPick instead
  */
 export async function showPairQuickPick(isHtml: boolean, forSource = true): Promise<PairType | undefined> {
