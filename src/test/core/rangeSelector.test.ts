@@ -330,5 +330,38 @@ suite("Core: Range Selector Test Suite", () => {
     // Check that the inner pair is detected correctly
     const expectedRange = createRange(0, 20, 0, 25);
     assert.deepStrictEqual(innerBracePair.range, expectedRange, "Range should be between the inner braces");
+    test("findSurroundingPair should select inner tag when cursor is inside nested tags of the same type", () => {
+      const doc = "<div><div>Hello <div>world</div> today</div></div>";
+      const cursor = createPosition(0, 20); // Cursor at 'world'
+      const selection = createRange(0, 20, 0, 20);
+      const editorState = createMockEditorState(doc, cursor, selection);
+
+      const result = findSurroundingPair(editorState, { type: "tag", name: "div" });
+
+      assert.ok(result, "Result should not be null");
+      const expectedRange = createRange(0, 18, 0, 23);
+      assert.deepStrictEqual(result.range, expectedRange, "Range should be between the innermost div tags");
+      assert.strictEqual(result.text, "world", "Text should be the content between innermost div tags");
+    });
+
+    test("findAllSurroundingPairs should include inner tag when cursor is inside nested tags of the same type", () => {
+      const doc = "<div><div>Hello <div>world</div> today</div></div>";
+      const cursor = createPosition(0, 20); // Cursor at 'world'
+      const selection = createRange(0, 20, 0, 20);
+      const editorState = createMockEditorState(doc, cursor, selection);
+
+      const results: DetectedPair[] = findAllSurroundingPairs(editorState);
+
+      // Should detect innermost div tag
+      const innerDivTagPair = results.find(
+        (pair: DetectedPair) => typeof pair.pairType === "object" && pair.pairType.name === "div" && pair.text === "world"
+      );
+      assert.ok(innerDivTagPair, "Should detect innermost div tag pair");
+
+      // Check that the innermost div tag is detected correctly
+      const expectedRange = createRange(0, 18, 0, 23);
+      assert.deepStrictEqual(innerDivTagPair.range, expectedRange, "Range should be between the innermost div tags");
+      assert.strictEqual(innerDivTagPair.text, "world", "Text should be the content between innermost div tags");
+    });
   });
 });
