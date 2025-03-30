@@ -1,28 +1,28 @@
 /**
- * 操作の種類
- * - add: 囲み文字/タグの追加
- * - delete: 囲み文字/タグの削除
- * - replace: 囲み文字/タグの置換
+ * Operation types
+ * - add: Add surrounding pair/tag
+ * - delete: Delete surrounding pair/tag
+ * - replace: Replace surrounding pair/tag
  */
 export type OperationType = "add" | "delete" | "replace";
 
 /**
- * 範囲選択の種類
- * - _: 行全体
- * - s: 現在の選択範囲
- * - it: タグの内側
- * - at: タグ全体
- * - st: 自己閉じタグ
+ * Range selection types
+ * - _: Entire line
+ * - s: Current selection
+ * - it: Inside tag
+ * - at: Around tag
+ * - st: Self-closing tag
  */
 export type RangeType = "_" | "s" | "it" | "at" | "st";
 
 /**
- * 基本的なペアの種類
+ * Basic pair types
  */
 export type BasicPairType = "'" | '"' | "`";
 
 /**
- * タグペアの種類
+ * Tag pair type
  */
 export type TagPairType = {
   type: "tag";
@@ -30,27 +30,27 @@ export type TagPairType = {
 };
 
 /**
- * ペアの種類（全体）
+ * Pair types (all)
  */
 export type PairType = BasicPairType | TagPairType;
 
 /**
- * エディタの状態を表すインターフェース（VSCode API非依存）
+ * Interface representing editor state (VSCode API independent)
  */
 export type EditorState = {
-  /** ドキュメントのテキスト全体 */
+  /** Full document text */
   documentText: string;
-  /** カーソル位置 */
+  /** Cursor position */
   cursorPosition: Position;
-  /** 現在の選択範囲 */
+  /** Current selection */
   selection: Range;
-  /** 指定された行のテキストを取得する関数 */
+  /** Function to get text of specified line */
   getLineText: (lineNumber: number) => string;
 };
 
 /**
- * 位置情報
- * VSCode APIに依存しない抽象化された型
+ * Position information
+ * Abstracted type independent of VSCode API
  */
 export type Position = {
   line: number;
@@ -58,8 +58,8 @@ export type Position = {
 };
 
 /**
- * 範囲情報
- * VSCode APIに依存しない抽象化された型
+ * Range information
+ * Abstracted type independent of VSCode API
  */
 export type Range = {
   start: Position;
@@ -67,8 +67,8 @@ export type Range = {
 };
 
 /**
- * テキスト編集情報
- * VSCode APIに依存しない抽象化された型
+ * Text edit information
+ * Abstracted type independent of VSCode API
  */
 export type TextEdit = {
   range: Range;
@@ -76,7 +76,7 @@ export type TextEdit = {
 };
 
 /**
- * 範囲選択の結果
+ * Range selection result
  */
 export type SelectionRangeResult = {
   range: Range;
@@ -84,12 +84,12 @@ export type SelectionRangeResult = {
 };
 
 /**
- * テキスト編集の結果
+ * Text edit result
  */
 export type TextEditResult = TextEdit[];
 
 /**
- * コマンド実行中の状態
+ * Command execution state
  */
 export type CommandState = {
   operation?: OperationType;
