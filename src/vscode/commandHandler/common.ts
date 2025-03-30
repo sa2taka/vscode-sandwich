@@ -251,17 +251,46 @@ export async function showSourcePairQuickPick(isHtml: boolean): Promise<PairType
 
   // Check if selected value is a tag pair with empty name
   if (selectedValue && typeof selectedValue === "object" && "type" in selectedValue) {
-    // For tag pair with empty name, ask for tag name
-    const tagName = await vscode.window.showInputBox({
-      placeHolder: "Enter tag name",
-      prompt: "Enter tag name (e.g., div, span, p)",
-    });
+    // For tag pair with empty name, show tag name selection using detected tag names
+    const tagOptions: ValueQuickPickItem<string>[] = [];
 
-    if (!tagName) {
+    // Extract unique tag names from detected pairs
+    for (const pair of detectedPairs.toReversed()) {
+      if (typeof pair.pairType === "object" && "name" in pair.pairType) {
+        // Check if this tag name is already in the options
+        const tagName = pair.pairType.name;
+        if (!tagOptions.some((option) => option.value === tagName)) {
+          tagOptions.push({
+            label: tagName,
+            description: `<${tagName}> tag`,
+            value: tagName,
+          });
+        }
+      }
+    }
+
+    // If no tags were detected, allow manual input
+    if (tagOptions.length === 0) {
+      const tagName = await vscode.window.showInputBox({
+        placeHolder: "Enter tag name",
+        prompt: "Enter tag name (e.g., div, span, p)",
+      });
+
+      if (!tagName) {
+        return undefined;
+      }
+
+      return { type: "tag", name: tagName };
+    }
+
+    // Show quick pick with detected tag names
+    const selectedTagName = await createCommonQuickPick(tagOptions, "Select tag name");
+
+    if (!selectedTagName) {
       return undefined;
     }
 
-    return { type: "tag", name: tagName };
+    return { type: "tag", name: selectedTagName };
   }
 
   return selectedValue;
