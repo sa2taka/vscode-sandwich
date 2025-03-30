@@ -56,8 +56,7 @@ suite("Core: Range Selector Test Suite", () => {
 
     assert.ok(result, "Result should not be null");
     assert.deepStrictEqual(result.range, selection, "Range should be the same as the selection");
-    // TODO: Add assertion for selected text when implemented in selectRange
-    // assert.strictEqual(result.text, 'selected');
+    assert.strictEqual(result.text, "selected", "Text should be the selected content");
   });
 
   test('selectRange with type "s" should return null if selection is empty', () => {
@@ -71,16 +70,92 @@ suite("Core: Range Selector Test Suite", () => {
     assert.strictEqual(result, null, "Result should be null for empty selection");
   });
 
-  test("selectRange with unimplemented types should return null", () => {
-    const doc = "line1\nline2\nline3";
-    const cursor = createPosition(1, 5);
-    const selection = createRange(1, 5, 1, 5);
+  test('selectRange with type "it" should select the inner content of a tag', () => {
+    const doc = "<div><p>Hello world</p></div>";
+    const cursor = createPosition(0, 10); // Cursor inside the p tag content
+    const selection = createRange(0, 10, 0, 10);
     const editorState = createMockEditorState(doc, cursor, selection);
 
-    assert.strictEqual(selectRange("it", editorState), null, 'Result for "it" should be null');
-    assert.strictEqual(selectRange("at", editorState), null, 'Result for "at" should be null');
-    assert.strictEqual(selectRange("st", editorState), null, 'Result for "st" should be null');
+    const result = selectRange("it", editorState);
+
+    assert.ok(result, "Result should not be null");
+    const expectedRange = createRange(0, 8, 0, 19);
+    assert.deepStrictEqual(result.range, expectedRange, "Range should select inner content of the tag");
+    assert.strictEqual(result.text, "Hello world", "Text should be the inner content of the tag");
   });
 
-  // TODO: Add tests for 'it', 'at', 'st' when implemented
+  test('selectRange with type "at" should select the entire tag', () => {
+    const doc = "<div><p>Hello world</p></div>";
+    const cursor = createPosition(0, 10); // Cursor inside the p tag content
+    const selection = createRange(0, 10, 0, 10);
+    const editorState = createMockEditorState(doc, cursor, selection);
+
+    const result = selectRange("at", editorState);
+
+    assert.ok(result, "Result should not be null");
+    const expectedRange = createRange(0, 5, 0, 23);
+    assert.deepStrictEqual(result.range, expectedRange, "Range should select the entire tag");
+    assert.strictEqual(result.text, "<p>Hello world</p>", "Text should be the entire tag");
+  });
+
+  test('selectRange with type "st" should select a self-closing tag', () => {
+    const doc = '<div><img src="image.jpg" /></div>';
+    const cursor = createPosition(0, 15); // Cursor inside the img tag
+    const selection = createRange(0, 15, 0, 15);
+    const editorState = createMockEditorState(doc, cursor, selection);
+
+    const result = selectRange("st", editorState);
+
+    assert.ok(result, "Result should not be null");
+    const expectedRange = createRange(0, 5, 0, 28);
+    assert.deepStrictEqual(result.range, expectedRange, "Range should select the self-closing tag");
+    assert.strictEqual(result.text, '<img src="image.jpg" />', "Text should be the self-closing tag");
+  });
+
+  test('selectRange with type "it" should return null if no tag is found', () => {
+    const doc = "No tags here";
+    const cursor = createPosition(0, 5);
+    const selection = createRange(0, 5, 0, 5);
+    const editorState = createMockEditorState(doc, cursor, selection);
+
+    const result = selectRange("it", editorState);
+
+    assert.strictEqual(result, null, "Result should be null when no tag is found");
+  });
+
+  test('selectRange with type "at" should return null if no tag is found', () => {
+    const doc = "No tags here";
+    const cursor = createPosition(0, 5);
+    const selection = createRange(0, 5, 0, 5);
+    const editorState = createMockEditorState(doc, cursor, selection);
+
+    const result = selectRange("at", editorState);
+
+    assert.strictEqual(result, null, "Result should be null when no tag is found");
+  });
+
+  test('selectRange with type "st" should return null if no self-closing tag is found', () => {
+    const doc = "No tags here";
+    const cursor = createPosition(0, 5);
+    const selection = createRange(0, 5, 0, 5);
+    const editorState = createMockEditorState(doc, cursor, selection);
+
+    const result = selectRange("st", editorState);
+
+    assert.strictEqual(result, null, "Result should be null when no self-closing tag is found");
+  });
+
+  test('selectRange with type "it" should handle multi-line tags', () => {
+    const doc = "<div>\n  <p>\n    Hello\n    world\n  </p>\n</div>";
+    const cursor = createPosition(2, 5); // Cursor on the "Hello" line
+    const selection = createRange(2, 5, 2, 5);
+    const editorState = createMockEditorState(doc, cursor, selection);
+
+    const result = selectRange("it", editorState);
+
+    assert.ok(result, "Result should not be null");
+    const expectedRange = createRange(1, 5, 4, 2);
+    assert.deepStrictEqual(result.range, expectedRange, "Range should select inner content of the multi-line tag");
+    assert.strictEqual(result.text, "\n    Hello\n    world\n  ", "Text should be the inner content of the multi-line tag");
+  });
 });
