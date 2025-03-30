@@ -250,7 +250,7 @@ export async function showSourcePairQuickPick(isHtml: boolean): Promise<PairType
   const selectedValue = await createCommonQuickPick(uniquePairs, "Select pair");
 
   // Check if selected value is a tag pair with empty name
-  if (selectedValue && typeof selectedValue === "object" && "type" in selectedValue && selectedValue.name === "") {
+  if (selectedValue && typeof selectedValue === "object" && "type" in selectedValue) {
     // For tag pair with empty name, ask for tag name
     const tagName = await vscode.window.showInputBox({
       placeHolder: "Enter tag name",
