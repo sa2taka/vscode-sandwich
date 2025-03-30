@@ -1,4 +1,4 @@
-import type { OperationType, PairType, Range, TextEditResult } from "./types";
+import { isTagPairType, type OperationType, type PairType, type Range, type TextEditResult } from "./types";
 
 /**
  * Get the opening and closing parts of a pair
@@ -53,7 +53,7 @@ const deletePair = (range: Range, pair: PairType): TextEditResult => {
   const openingRange: Range = {
     start: {
       line: range.start.line,
-      character: range.start.character - openingLength,
+      character: range.start.character - (isTagPairType(pair) ? openingLength : 1),
     },
     end: range.start,
   };
@@ -63,7 +63,7 @@ const deletePair = (range: Range, pair: PairType): TextEditResult => {
     start: range.end,
     end: {
       line: range.end.line,
-      character: range.end.character + closingLength,
+      character: range.end.character + (isTagPairType(pair) ? closingLength : 1),
     },
   };
 

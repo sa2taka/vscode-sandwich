@@ -33,6 +33,10 @@ export type TagPairType = {
  * Pair types (all)
  */
 export type PairType = BasicPairType | TagPairType;
+export const isTagPairType = (pair: PairType): pair is TagPairType => {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  return typeof pair !== "string" && pair.type === "tag";
+};
 
 /**
  * Interface representing editor state (VSCode API independent)
