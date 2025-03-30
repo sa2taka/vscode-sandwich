@@ -1,7 +1,8 @@
 {
   "name": "vscode-sandwich",
+  "publisher": "sa2taka",
   "displayName": "VSCode sandwich",
-  "description": "Work with stuff tath comes in pairs like brackets, quotes and HTML tags.",
+  "description": "Work with stuff that comes in pairs like brackets, quotes and HTML tags.",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.98.0"
@@ -9,15 +10,42 @@
   "categories": [
     "Other"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sa2taka/vscode-sandwich"
+  },
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "vscode-sandwich.helloWorld",
-        "title": "Hello World"
+        "command": "vscode-sandwich.execute",
+        "title": "VSCode Sandwich: Execute"
       }
-    ]
+    ],
+    "keybindings": [
+      {
+        "command": "vscode-sandwich.execute",
+        "key": "ctrl+k s",
+        "mac": "cmd+k s",
+        "when": "editorTextFocus"
+      }
+    ],
+    "configuration": {
+      "title": "VSCode Sandwich",
+      "properties": {
+        "vscodeSandwich.enterToConfirm": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to require Enter key to confirm selections"
+        },
+        "vscodeSandwich.highlightColor": {
+          "type": "string",
+          "default": "rgba(255, 255, 0, 0.3)",
+          "description": "Color to use for highlighting selected ranges"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
@@ -31,7 +59,8 @@
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "check-types": "tsc --noEmit",
     "lint": "eslint src && prettier --check src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "format": "eslint --fix src && prettier --write src"
   },
   "devDependencies": {
     "@eslint/js": "^9.23.0",
