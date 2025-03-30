@@ -31,19 +31,19 @@ const createMockEditorState = (
 };
 
 suite("Core: Range Selector Test Suite", () => {
-  test('selectRange with type "_" should select the entire line', () => {
-    const doc = "line1\nline2 with cursor\nline3";
+  test('selectRange with type "_" should select the line excluding leading whitespace', () => {
+    const doc = "line1\n    line2 with cursor\nline3";
     const lines = doc.split("\n");
-    const cursor = createPosition(1, 5); // Cursor on line 2
-    const selection = createRange(1, 5, 1, 5); // No actual selection
+    const cursor = createPosition(1, 9); // Cursor on line 2
+    const selection = createRange(1, 9, 1, 9); // No actual selection
     const editorState = createMockEditorState(doc, cursor, selection, lines);
 
     const result = selectRange("_", editorState);
 
     assert.ok(result, "Result should not be null");
-    const expectedRange = createRange(1, 0, 1, lines[1].length);
-    assert.deepStrictEqual(result.range, expectedRange, "Range should cover the entire line");
-    assert.strictEqual(result.text, lines[1], "Text should be the content of the line");
+    const expectedRange = createRange(1, 4, 1, lines[1].length);
+    assert.deepStrictEqual(result.range, expectedRange, "Range should exclude leading whitespace");
+    assert.strictEqual(result.text, "line2 with cursor", "Text should be the content of the line without leading whitespace");
   });
 
   test('selectRange with type "s" should return the current selection', () => {

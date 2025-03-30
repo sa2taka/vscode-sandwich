@@ -4,7 +4,7 @@
  */
 
 // Re-export from config
-export { CONFIG_KEYS, getConfig } from "./config";
+export { ConfigKey, getConfig } from "./config";
 
 // Re-export from highlighter
 export { disposeHighlighter, getHighlighter } from "./highlighter";

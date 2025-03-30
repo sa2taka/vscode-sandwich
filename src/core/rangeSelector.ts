@@ -11,14 +11,16 @@ export const selectRange = (rangeType: RangeType, editorState: EditorState): Sel
     case "_": {
       const line = editorState.cursorPosition.line;
       const lineText = editorState.getLineText(line);
-      // From the beginning to the end of the line (excluding newline characters)
-      const startCharacter = 0;
+      // From the first non-whitespace character to the end of the line
+      const startCharacter = lineText.search(/\S/);
+      // If the line is empty or contains only whitespace, use the beginning of the line
+      const effectiveStartCharacter = startCharacter === -1 ? 0 : startCharacter;
       const endCharacter = lineText.length;
       const range: Range = {
-        start: { line, character: startCharacter },
+        start: { line, character: effectiveStartCharacter },
         end: { line, character: endCharacter },
       };
-      return { range, text: lineText };
+      return { range, text: lineText.substring(effectiveStartCharacter) };
     }
     case "s": {
       // Ensure the selection range is not empty
