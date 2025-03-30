@@ -198,11 +198,15 @@ export async function showSourcePairQuickPick(isHtml: boolean): Promise<PairType
       });
     } else if (isHtml) {
       // Tag pair
-      pairs.push({
-        label: "t",
-        description: `HTML tag: ${pair.pairType.name}`,
-        value: pair.pairType,
-      });
+      // Check if a tag option already exists to avoid duplicates
+      const tagOptionExists = pairs.some((item) => item.label === "t");
+      if (!tagOptionExists) {
+        pairs.push({
+          label: "t",
+          description: `HTML tag`,
+          value: pair.pairType,
+        });
+      }
     }
   }
 
