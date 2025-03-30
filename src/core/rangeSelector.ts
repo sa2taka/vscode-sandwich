@@ -1,18 +1,4 @@
-import type { Position, Range, RangeType, SelectionRangeResult } from "./types";
-
-/**
- * エディタの状態を表すインターフェース（VSCode API非依存）
- */
-export type EditorState = {
-  /** ドキュメントのテキスト全体 */
-  documentText: string;
-  /** カーソル位置 */
-  cursorPosition: Position;
-  /** 現在の選択範囲 */
-  selection: Range;
-  /** 指定された行のテキストを取得する関数 */
-  getLineText: (lineNumber: number) => string;
-};
+import type { EditorState, Range, RangeType, SelectionRangeResult } from "./types";
 
 /**
  * 指定された範囲タイプに基づいて、操作対象の範囲を計算します。

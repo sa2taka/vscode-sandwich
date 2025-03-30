@@ -35,6 +35,20 @@ export type TagPairType = {
 export type PairType = BasicPairType | TagPairType;
 
 /**
+ * エディタの状態を表すインターフェース（VSCode API非依存）
+ */
+export type EditorState = {
+  /** ドキュメントのテキスト全体 */
+  documentText: string;
+  /** カーソル位置 */
+  cursorPosition: Position;
+  /** 現在の選択範囲 */
+  selection: Range;
+  /** 指定された行のテキストを取得する関数 */
+  getLineText: (lineNumber: number) => string;
+};
+
+/**
  * 位置情報
  * VSCode APIに依存しない抽象化された型
  */
