@@ -14,10 +14,43 @@
   "contributes": {
     "commands": [
       {
-        "command": "vscode-sandwich.helloWorld",
-        "title": "Hello World"
+        "command": "vscode-sandwich.execute",
+        "title": "VSCode Sandwich: Execute"
       }
-    ]
+    ],
+    "keybindings": [
+      {
+        "command": "vscode-sandwich.execute",
+        "key": "ctrl+k s",
+        "mac": "cmd+k s",
+        "when": "editorTextFocus"
+      }
+    ],
+    "configuration": {
+      "title": "VSCode Sandwich",
+      "properties": {
+        "vscodeSandwich.enterToConfirm": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to require Enter key to confirm selections"
+        },
+        "vscodeSandwich.defaultPairs": {
+          "type": "array",
+          "default": [
+            "'",
+            "\"",
+            "`",
+            "t"
+          ],
+          "description": "Default pairs to show in the quick pick"
+        },
+        "vscodeSandwich.highlightColor": {
+          "type": "string",
+          "default": "rgba(255, 255, 0, 0.3)",
+          "description": "Color to use for highlighting selected ranges"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
