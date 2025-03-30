@@ -288,4 +288,18 @@ suite("Core: Range Selector Test Suite", () => {
 
     // Outer div tag is not detected with the improved algorithm
   });
+
+  test("findSurroundingPair should correctly handle nested brackets in template literals", () => {
+    const doc = "const text = { `hoge, ${fuga}` };";
+    const cursor = createPosition(0, 20); // Cursor inside the template literal
+    const selection = createRange(0, 20, 0, 20);
+    const editorState = createMockEditorState(doc, cursor, selection);
+
+    const result = findSurroundingPair(editorState, "{}");
+
+    assert.ok(result, "Result should not be null");
+    const expectedRange = createRange(0, 14, 0, 31);
+    assert.deepStrictEqual(result.range, expectedRange, "Range should be between the outer braces");
+    assert.strictEqual(result.text, " `hoge, ${fuga}` ", "Text should be the content between outer braces");
+  });
 });

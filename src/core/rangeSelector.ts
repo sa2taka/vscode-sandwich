@@ -555,16 +555,32 @@ const findSurroundingQuotePair = (
 ): SelectionRangeResult | null => {
   const { opening, closing } = delimiter;
 
-  // Find all occurrences of opening and closing quotes
-  const openingIndices = findAllOccurrences(documentText, opening);
-  const closingIndices = findAllOccurrences(documentText, closing);
+  // Find balanced pairs of brackets
+  const balancedPairs = findBalancedPairs(documentText, opening, closing);
 
   // Find the pair that surrounds the cursor
-  const pairPosition = findSurroundingPairPosition(cursorOffset, openingIndices, closingIndices, opening.length, closing.length);
+  const surroundingPair = balancedPairs.find((pair) => pair.start < cursorOffset && cursorOffset < pair.end);
 
-  if (!pairPosition) {
-    return null;
+  if (!surroundingPair) {
+    // Fallback to the old method if no balanced pair is found
+    const openingIndices = findAllOccurrences(documentText, opening);
+    const closingIndices = findAllOccurrences(documentText, closing);
+    const pairPosition = findSurroundingPairPosition(cursorOffset, openingIndices, closingIndices, opening.length, closing.length);
+
+    if (!pairPosition) {
+      return null;
+    }
+
+    return createSelectionResult(editorState, pairPosition);
   }
+
+  // Convert to PairPosition
+  const pairPosition: PairPosition = {
+    openingStart: surroundingPair.start,
+    openingEnd: surroundingPair.start + opening.length,
+    closingStart: surroundingPair.end,
+    closingEnd: surroundingPair.end + closing.length,
+  };
 
   return createSelectionResult(editorState, pairPosition);
 };
@@ -585,6 +601,41 @@ const findAllOccurrences = (text: string, searchString: string): number[] => {
   }
 
   return indices;
+};
+
+/**
+ * Finds balanced pairs of brackets in text
+ * This handles nested brackets correctly
+ */
+const findBalancedPairs = (text: string, opening: string, closing: string): { start: number; end: number }[] => {
+  const pairs: { start: number; end: number }[] = [];
+  const stack: number[] = [];
+
+  // Find all occurrences of opening and closing brackets
+  const openingIndices = findAllOccurrences(text, opening);
+  const closingIndices = findAllOccurrences(text, closing);
+
+  // Sort all indices to process them in order
+  const allIndices = [
+    ...openingIndices.map((index) => ({ index, type: "opening" as const })),
+    ...closingIndices.map((index) => ({ index, type: "closing" as const })),
+  ].sort((a, b) => a.index - b.index);
+
+  // Process brackets in order
+  for (const { index, type } of allIndices) {
+    if (type === "opening") {
+      stack.push(index);
+    } else if (stack.length > 0) {
+      // This is a closing bracket and we have an opening bracket on the stack
+      const openingIndex = stack.pop();
+      if (openingIndex !== undefined && stack.length === 0) {
+        // Only add pairs that are at the same nesting level
+        pairs.push({ start: openingIndex, end: index });
+      }
+    }
+  }
+
+  return pairs;
 };
 
 /**
