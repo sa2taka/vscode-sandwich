@@ -1,7 +1,15 @@
 import * as vscode from "vscode";
 import { findAllSurroundingPairs } from "../../core/rangeSelector";
 import { getTextEdits } from "../../core/textManipulator";
-import type { Position as CorePosition, Range as CoreRange, EditorState, OperationType, PairType, TextEdit } from "../../core/types";
+import type {
+  Position as CorePosition,
+  Range as CoreRange,
+  EditorState,
+  OperationType,
+  PairType,
+  SelectionRangeWithPairResult,
+  TextEdit,
+} from "../../core/types";
 import { getConfig } from "../config";
 
 /**
@@ -430,7 +438,7 @@ export async function applyTextEdits(edits: vscode.TextEdit[]): Promise<boolean>
  */
 export async function getAndApplyTextEdits(
   operation: OperationType,
-  targetRange: CoreRange,
+  targetRange: SelectionRangeWithPairResult,
   destinationPair: PairType,
   sourcePair?: PairType
 ): Promise<boolean> {

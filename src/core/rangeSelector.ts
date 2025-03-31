@@ -6,13 +6,13 @@ import {
   type Position,
   type Range,
   type RangeType,
-  type SelectionRangeResult,
+  type SelectionRangeWithPairResult,
 } from "./types";
 
 /**
  * Calculates the range to operate on based on the specified range type.
  */
-export const selectRange = (rangeType: RangeType, editorState: EditorState): SelectionRangeResult | null => {
+export const selectRange = (rangeType: RangeType, editorState: EditorState): SelectionRangeWithPairResult | null => {
   switch (rangeType) {
     case "_": {
       return selectEntireLine(editorState);
@@ -40,7 +40,7 @@ export const selectRange = (rangeType: RangeType, editorState: EditorState): Sel
 /**
  * Selects the entire line at cursor position
  */
-const selectEntireLine = (editorState: EditorState): SelectionRangeResult => {
+const selectEntireLine = (editorState: EditorState): SelectionRangeWithPairResult => {
   const line = editorState.cursorPosition.line;
   const lineText = editorState.getLineText(line);
   const startCharacter = lineText.search(/\S/);
@@ -52,13 +52,24 @@ const selectEntireLine = (editorState: EditorState): SelectionRangeResult => {
     end: { line, character: endCharacter },
   };
 
-  return { range, text: lineText.substring(effectiveStartCharacter) };
+  // startRangeとendRangeを追加
+  const startRange: Range = {
+    start: { line, character: effectiveStartCharacter },
+    end: { line, character: effectiveStartCharacter },
+  };
+
+  const endRange: Range = {
+    start: { line, character: endCharacter },
+    end: { line, character: endCharacter },
+  };
+
+  return { range, startRange, endRange, text: lineText.substring(effectiveStartCharacter) };
 };
 
 /**
  * Selects the current selection if it exists
  */
-const selectCurrentSelection = (editorState: EditorState): SelectionRangeResult | null => {
+const selectCurrentSelection = (editorState: EditorState): SelectionRangeWithPairResult | null => {
   const { selection } = editorState;
 
   // Check if selection is empty
@@ -68,7 +79,19 @@ const selectCurrentSelection = (editorState: EditorState): SelectionRangeResult 
   }
 
   const text = getTextFromRange(editorState, selection);
-  return { range: selection, text };
+
+  // startRangeとendRangeを追加
+  const startRange: Range = {
+    start: selection.start,
+    end: selection.start,
+  };
+
+  const endRange: Range = {
+    start: selection.end,
+    end: selection.end,
+  };
+
+  return { range: selection, startRange, endRange, text };
 };
 
 /**
@@ -124,7 +147,7 @@ type TagPair = {
  * Finds the inner content of a tag at the cursor position
  * Example: <div>inner content</div> -> selects "inner content"
  */
-const findInnerTagContent = (editorState: EditorState): SelectionRangeResult | null => {
+const findInnerTagContent = (editorState: EditorState): SelectionRangeWithPairResult | null => {
   const { documentText, cursorPosition } = editorState;
   const cursorOffset = positionToOffset(editorState, cursorPosition);
 
@@ -137,20 +160,34 @@ const findInnerTagContent = (editorState: EditorState): SelectionRangeResult | n
   if (!openingTag) return null;
 
   // Create range from end of opening tag to start of closing tag
+  const openingEndPosition = offsetToPosition(editorState, openingTag.index + openingTag.name.length + 2); // +2 for "<" and ">"
+  const closingStartPosition = offsetToPosition(editorState, closingTag.index);
+
   const range: Range = {
-    start: offsetToPosition(editorState, openingTag.index + openingTag.name.length + 2), // +2 for "<" and ">"
-    end: offsetToPosition(editorState, closingTag.index),
+    start: openingEndPosition,
+    end: closingStartPosition,
+  };
+
+  // startRangeとendRangeを追加
+  const startRange: Range = {
+    start: offsetToPosition(editorState, openingTag.index),
+    end: openingEndPosition,
+  };
+
+  const endRange: Range = {
+    start: closingStartPosition,
+    end: offsetToPosition(editorState, closingTag.index + closingTag.name.length + 3), // +3 for "</", ">"
   };
 
   const text = getTextFromRange(editorState, range);
-  return { range, text };
+  return { range, startRange, endRange, text };
 };
 
 /**
  * Finds the entire tag at the cursor position
  * Example: <div>content</div> -> selects "<div>content</div>"
  */
-const findEntireTag = (editorState: EditorState): SelectionRangeResult | null => {
+const findEntireTag = (editorState: EditorState): SelectionRangeWithPairResult | null => {
   const { documentText, cursorPosition } = editorState;
   const cursorOffset = positionToOffset(editorState, cursorPosition);
 
@@ -163,13 +200,27 @@ const findEntireTag = (editorState: EditorState): SelectionRangeResult | null =>
   if (!openingTag) return null;
 
   // Create range from start of opening tag to end of closing tag
+  const openingStartPosition = offsetToPosition(editorState, openingTag.index);
+  const closingEndPosition = offsetToPosition(editorState, closingTag.index + closingTag.name.length + 3); // +3 for "</", ">"
+
   const range: Range = {
-    start: offsetToPosition(editorState, openingTag.index),
-    end: offsetToPosition(editorState, closingTag.index + closingTag.name.length + 3), // +3 for "</", ">"
+    start: openingStartPosition,
+    end: closingEndPosition,
+  };
+
+  // startRangeとendRangeを追加
+  const startRange: Range = {
+    start: openingStartPosition,
+    end: offsetToPosition(editorState, openingTag.index + openingTag.name.length + 2), // +2 for "<" and ">"
+  };
+
+  const endRange: Range = {
+    start: offsetToPosition(editorState, closingTag.index),
+    end: closingEndPosition,
   };
 
   const text = getTextFromRange(editorState, range);
-  return { range, text };
+  return { range, startRange, endRange, text };
 };
 
 /**
@@ -220,7 +271,7 @@ const findMatchingOpeningTag = (documentText: string, tagName: string, closingTa
  * Finds the self-closing tag at the cursor position
  * Example: <img src="..." /> -> selects "<img src="..." />"
  */
-const findSelfClosingTag = (editorState: EditorState): SelectionRangeResult | null => {
+const findSelfClosingTag = (editorState: EditorState): SelectionRangeWithPairResult | null => {
   const { documentText, cursorPosition } = editorState;
   const cursorOffset = positionToOffset(editorState, cursorPosition);
 
@@ -249,13 +300,28 @@ const findSelfClosingTag = (editorState: EditorState): SelectionRangeResult | nu
   if (!bestMatch) return null;
 
   // Convert offsets to positions
+  const startPosition = offsetToPosition(editorState, bestMatch.start);
+  const endPosition = offsetToPosition(editorState, bestMatch.end);
+
   const range: Range = {
-    start: offsetToPosition(editorState, bestMatch.start),
-    end: offsetToPosition(editorState, bestMatch.end),
+    start: startPosition,
+    end: endPosition,
+  };
+
+  // 自己閉じタグの場合、startRangeとendRangeは同じ範囲を指す
+  // For self-closing tags, startRange and endRange point to the same range
+  const startRange: Range = {
+    start: startPosition,
+    end: endPosition,
+  };
+
+  const endRange: Range = {
+    start: startPosition,
+    end: endPosition,
   };
 
   const text = getTextFromRange(editorState, range);
-  return { range, text };
+  return { range, startRange, endRange, text };
 };
 
 /**
@@ -467,7 +533,7 @@ type PairPosition = {
 /**
  * Finds the surrounding pair at the cursor position
  */
-export const findSurroundingPair = (editorState: EditorState, pair: PairType): SelectionRangeResult | null => {
+export const findSurroundingPair = (editorState: EditorState, pair: PairType): SelectionRangeWithPairResult | null => {
   const { documentText, cursorPosition } = editorState;
   const cursorOffset = positionToOffset(editorState, cursorPosition);
   const delimiter = getPairDelimiter(pair);
@@ -505,7 +571,7 @@ const findSurroundingBasicPair = (
   cursorOffset: number,
   delimiter: { opening: string; closing: string },
   _pairType: string
-): SelectionRangeResult | null => {
+): SelectionRangeWithPairResult | null => {
   const { opening, closing } = delimiter;
   const isQuote = opening === closing;
 
@@ -528,7 +594,7 @@ const findSurroundingQuotePair = (
   balancedPairs: { start: number; end: number }[],
   opening: string,
   closing: string
-): SelectionRangeResult | null => {
+): SelectionRangeWithPairResult | null => {
   // For quotes, find the pair that contains the cursor or is closest
   let bestPair = null;
   let minDistance = Number.MAX_SAFE_INTEGER;
@@ -578,7 +644,7 @@ const findSurroundingBracketPair = (
   balancedPairs: { start: number; end: number }[],
   opening: string,
   closing: string
-): SelectionRangeResult | null => {
+): SelectionRangeWithPairResult | null => {
   // Find all pairs that surround the cursor
   const surroundingPairs = balancedPairs.filter((pair) => pair.start < cursorOffset && cursorOffset < pair.end);
 
@@ -719,17 +785,20 @@ const findSurroundingTagPair = (
   documentText: string,
   cursorOffset: number,
   delimiter: { opening: string; closing: string }
-): SelectionRangeResult | null => {
+): SelectionRangeWithPairResult | null => {
   const { opening, closing } = delimiter;
 
   // Find the closest opening tag before cursor
   const textBeforeCursor = documentText.substring(0, cursorOffset);
-  const lastOpeningIndex = textBeforeCursor.lastIndexOf(opening);
+  const tagName = opening.slice(1, -1); // Remove < and >
+  const openingTagRegexp = new RegExp(`<${tagName}[^>]*>`, "g");
+  const openingTagMatch = openingTagRegexp.exec(textBeforeCursor)?.[0];
 
-  if (lastOpeningIndex === -1) return null;
+  if (!openingTagMatch) return null;
+  const lastOpeningIndex = textBeforeCursor.lastIndexOf(openingTagMatch);
 
   // Find the closest closing tag after the opening tag
-  const openingEnd = lastOpeningIndex + opening.length;
+  const openingEnd = lastOpeningIndex + openingTagMatch.length;
   const textAfterOpening = documentText.substring(openingEnd);
   const nextClosingIndex = textAfterOpening.indexOf(closing);
 
@@ -753,16 +822,28 @@ const findSurroundingTagPair = (
 /**
  * Creates a SelectionRangeResult from a pair position
  */
-const createSelectionResult = (editorState: EditorState, pairPosition: PairPosition): SelectionRangeResult => {
+const createSelectionResult = (editorState: EditorState, pairPosition: PairPosition): SelectionRangeWithPairResult => {
+  const openingStartPosition = offsetToPosition(editorState, pairPosition.openingStart);
   const openingEndPosition = offsetToPosition(editorState, pairPosition.openingEnd);
   const closingStartPosition = offsetToPosition(editorState, pairPosition.closingStart);
+  const closingEndPosition = offsetToPosition(editorState, pairPosition.closingEnd);
 
   const range: Range = {
     start: openingEndPosition,
     end: closingStartPosition,
   };
 
+  const startRange: Range = {
+    start: openingStartPosition,
+    end: openingEndPosition,
+  };
+
+  const endRange: Range = {
+    start: closingStartPosition,
+    end: closingEndPosition,
+  };
+
   const text = getTextFromRange(editorState, range);
 
-  return { range, text };
+  return { range, startRange, endRange, text };
 };

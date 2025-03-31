@@ -13,7 +13,7 @@ export type {
   Position,
   Range,
   RangeType,
-  SelectionRangeResult,
+  SelectionRangeWithPairResult,
   TagPairType,
   TextEdit,
   TextEditResult,

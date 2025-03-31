@@ -1,4 +1,4 @@
-import { isTagPairType, type OperationType, type PairType, type Range, type TextEditResult } from "./types";
+import { SelectionRangeWithPairResult, type OperationType, type PairType, type Range, type TextEditResult } from "./types";
 
 /**
  * Get the opening and closing parts of a pair
@@ -19,21 +19,21 @@ const getPairParts = (pair: PairType): { opening: string; closing: string } => {
 /**
  * Add a pair around the specified range
  */
-const addPair = (range: Range, pair: PairType): TextEditResult => {
+const addPair = (ranges: SelectionRangeWithPairResult, pair: PairType): TextEditResult => {
   const { opening, closing } = getPairParts(pair);
 
   return [
     {
       range: {
-        start: range.start,
-        end: range.start,
+        start: ranges.range.start,
+        end: ranges.range.start,
       },
       newText: opening,
     },
     {
       range: {
-        start: range.end,
-        end: range.end,
+        start: ranges.range.end,
+        end: ranges.range.end,
       },
       newText: closing,
     },
@@ -44,28 +44,11 @@ const addPair = (range: Range, pair: PairType): TextEditResult => {
  * Delete a pair around the specified range
  * This is a simplified implementation that assumes the pair exists at the boundaries of the range
  */
-const deletePair = (range: Range, pair: PairType): TextEditResult => {
-  const { opening, closing } = getPairParts(pair);
-  const openingLength = opening.length;
-  const closingLength = closing.length;
-
-  // Create a range that includes the opening pair
-  const openingRange: Range = {
-    start: {
-      line: range.start.line,
-      character: range.start.character - (isTagPairType(pair) ? openingLength : 1),
-    },
-    end: range.start,
-  };
+const deletePair = (ranges: SelectionRangeWithPairResult): TextEditResult => {
+  const openingRange = ranges.startRange;
 
   // Create a range that includes the closing pair
-  const closingRange: Range = {
-    start: range.end,
-    end: {
-      line: range.end.line,
-      character: range.end.character + (isTagPairType(pair) ? closingLength : 1),
-    },
-  };
+  const closingRange = ranges.endRange;
 
   return [
     {
@@ -82,30 +65,14 @@ const deletePair = (range: Range, pair: PairType): TextEditResult => {
 /**
  * Replace a pair around the specified range with another pair
  */
-const replacePair = (range: Range, sourcePair: PairType, destinationPair: PairType): TextEditResult => {
-  const { opening: sourceOpening, closing: sourceClosing } = getPairParts(sourcePair);
+const replacePair = (ranges: SelectionRangeWithPairResult, destinationPair: PairType): TextEditResult => {
   const { opening: destOpening, closing: destClosing } = getPairParts(destinationPair);
 
-  const sourceOpeningLength = sourceOpening.length;
-  const sourceClosingLength = sourceClosing.length;
-
   // Create a range that includes the opening pair
-  const openingRange: Range = {
-    start: {
-      line: range.start.line,
-      character: range.start.character - sourceOpeningLength,
-    },
-    end: range.start,
-  };
+  const openingRange: Range = ranges.startRange;
 
   // Create a range that includes the closing pair
-  const closingRange: Range = {
-    start: range.end,
-    end: {
-      line: range.end.line,
-      character: range.end.character + sourceClosingLength,
-    },
-  };
+  const closingRange: Range = ranges.endRange;
 
   return [
     {
@@ -122,17 +89,22 @@ const replacePair = (range: Range, sourcePair: PairType, destinationPair: PairTy
 /**
  * Generate text edits based on the operation type, range, and pair information
  */
-export const getTextEdits = (operation: OperationType, range: Range, pair: PairType, sourcePair?: PairType): TextEditResult => {
+export const getTextEdits = (
+  operation: OperationType,
+  ranges: SelectionRangeWithPairResult,
+  pair: PairType,
+  sourcePair?: PairType
+): TextEditResult => {
   switch (operation) {
     case "add":
-      return addPair(range, pair);
+      return addPair(ranges, pair);
     case "delete":
-      return deletePair(range, pair);
+      return deletePair(ranges);
     case "replace":
       if (!sourcePair) {
         throw new Error("Source pair is required for replace operation");
       }
-      return replacePair(range, sourcePair, pair);
+      return replacePair(ranges, pair);
     default: {
       const exhaustiveCheck: never = operation;
       throw new Error(`Unknown operation: ${exhaustiveCheck as string}`);

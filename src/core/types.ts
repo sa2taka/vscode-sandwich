@@ -27,6 +27,7 @@ export type BasicPairType = "'" | '"' | "`" | "(" | "{" | "[" | "<";
 export type TagPairType = {
   type: "tag";
   name: string;
+  openingFullText?: string;
 };
 
 /**
@@ -82,8 +83,10 @@ export type TextEdit = {
 /**
  * Range selection result
  */
-export type SelectionRangeResult = {
+export type SelectionRangeWithPairResult = {
   range: Range;
+  startRange: Range;
+  endRange: Range;
   text?: string;
 };
 

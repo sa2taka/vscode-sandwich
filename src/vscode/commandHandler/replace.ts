@@ -56,5 +56,5 @@ export async function executeReplaceOperation(): Promise<void> {
   highlighter.clearHighlights();
 
   // Apply text edits
-  await getAndApplyTextEdits("replace", targetRange, destinationPair, sourcePair);
+  await getAndApplyTextEdits("replace", surroundingPair, destinationPair, sourcePair);
 }

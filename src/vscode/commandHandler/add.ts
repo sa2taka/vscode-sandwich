@@ -88,5 +88,5 @@ export async function executeAddOperation(): Promise<void> {
   getHighlighter().clearHighlights();
 
   // Apply text edits
-  await getAndApplyTextEdits("add", targetRange, destinationPair);
+  await getAndApplyTextEdits("add", rangeResult, destinationPair);
 }

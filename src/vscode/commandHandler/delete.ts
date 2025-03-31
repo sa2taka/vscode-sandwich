@@ -54,5 +54,5 @@ export async function executeDeleteOperation(): Promise<void> {
   }
 
   // Apply text edits
-  await getAndApplyTextEdits("delete", targetRange, sourcePair);
+  await getAndApplyTextEdits("delete", surroundingPair, sourcePair);
 }
