@@ -3,7 +3,7 @@
   "publisher": "sa2taka",
   "displayName": "VSCode sandwich",
   "description": "Work with stuff that comes in pairs like brackets, quotes and HTML tags.",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "engines": {
     "vscode": "^1.98.0"
   },
