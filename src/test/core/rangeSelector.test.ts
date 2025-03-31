@@ -98,6 +98,18 @@ suite("Core: Range Selector Test Suite", () => {
     assert.strictEqual(result.text, "<p>Hello world</p>", "Text should be the entire tag");
   });
 
+  test('selectRange with type "at" should handle cursor before nested tag', () => {
+    const doc = "<span> <div> hoge </div> </span>";
+    const cursor = createPosition(0, 7); // Cursor before the div tag
+    const selection = createRange(0, 7, 0, 7);
+    const editorState = createMockEditorState(doc, cursor, selection);
+
+    const result = selectRange("at", editorState);
+
+    assert.ok(result, "Result should not be null");
+    assert.strictEqual(result.text, "<span> <div> hoge </div> </span>", "Text should be the entire span tag");
+  });
+
   test('selectRange with type "st" should select a self-closing tag', () => {
     const doc = '<div><img src="image.jpg" /></div>';
     const cursor = createPosition(0, 15); // Cursor inside the img tag

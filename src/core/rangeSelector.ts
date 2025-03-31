@@ -339,19 +339,56 @@ const findEntireTag = (editorState: EditorState): SelectionRangeWithPairResult |
  * Finds the closing tag after the cursor
  */
 const findClosingTagAfterCursor = (documentText: string, cursorOffset: number): TagMatch | null => {
-  const closingTagRegex = /<\/([A-Za-z][\dA-Za-z]*)\s*>/g;
-  let match: RegExpExecArray | null;
+  // Track tag nesting to find the correct closing tag
+  let depth = 0;
+  let i = cursorOffset;
 
-  while ((match = closingTagRegex.exec(documentText)) !== null) {
-    const matchOffset = match.index;
+  while (i < documentText.length) {
+    // Look for opening or closing tags
+    if (documentText[i] === "<") {
+      if (i + 1 < documentText.length && documentText[i + 1] === "/") {
+        // This is a closing tag
+        const closeTagRegex = /<\/([A-Za-z][\dA-Za-z]*)/;
+        const closeTagMatch = closeTagRegex.exec(documentText.substring(i));
 
-    if (matchOffset >= cursorOffset) {
-      return {
-        name: match[1],
-        position: { line: 0, character: 0 }, // Will be converted later if needed
-        index: matchOffset,
-      };
+        if (closeTagMatch) {
+          if (depth === 0) {
+            // This is the closing tag we're looking for
+            return {
+              name: closeTagMatch[1],
+              position: { line: 0, character: 0 }, // Will be converted later if needed
+              index: i,
+            };
+          }
+
+          // Decrease nesting depth
+          depth--;
+
+          // Skip to the end of this tag
+          i += closeTagMatch[0].length;
+          while (i < documentText.length && documentText[i] !== ">") {
+            i++;
+          }
+        }
+      } else {
+        // This is an opening tag
+        const openTagRegex = /<([A-Za-z][\dA-Za-z]*)/;
+        const openTagMatch = openTagRegex.exec(documentText.substring(i));
+
+        if (openTagMatch) {
+          // Increase nesting depth
+          depth++;
+
+          // Skip to the end of this tag
+          i += openTagMatch[0].length;
+          while (i < documentText.length && documentText[i] !== ">") {
+            i++;
+          }
+        }
+      }
     }
+
+    i++;
   }
 
   return null;
@@ -361,22 +398,59 @@ const findClosingTagAfterCursor = (documentText: string, cursorOffset: number): 
  * Finds the matching opening tag for a closing tag
  */
 const findMatchingOpeningTag = (documentText: string, tagName: string, closingTagIndex: number): TagMatch | null => {
-  const openingTagRegex = new RegExp(`<${tagName}[^>]*>`, "g");
-  let match: RegExpExecArray | null;
-  let lastMatch: TagMatch | null = null;
+  // Track tag nesting to find the correct opening tag
+  let depth = 0;
 
   // Search backwards from the closing tag
   const textBeforeClosingTag = documentText.substring(0, closingTagIndex);
 
-  while ((match = openingTagRegex.exec(textBeforeClosingTag)) !== null) {
-    lastMatch = {
-      name: tagName,
-      position: { line: 0, character: 0 }, // Will be converted later if needed
-      index: match.index,
-    };
+  // Find all opening and closing tags of the same name
+  const openingTagRegex = new RegExp(`<${tagName}(?:\\s[^>]*)?>`, "g");
+  const closingTagRegex = new RegExp(`</${tagName}\\s*>`, "g");
+
+  const openingMatches: { index: number; length: number }[] = [];
+  const closingMatches: { index: number }[] = [];
+
+  // Find all opening tags
+  let openMatch: RegExpExecArray | null;
+  while ((openMatch = openingTagRegex.exec(textBeforeClosingTag)) !== null) {
+    openingMatches.push({
+      index: openMatch.index,
+      length: openMatch[0].length,
+    });
   }
 
-  return lastMatch;
+  // Find all closing tags
+  let closeMatch: RegExpExecArray | null;
+  while ((closeMatch = closingTagRegex.exec(textBeforeClosingTag)) !== null) {
+    closingMatches.push({ index: closeMatch.index });
+  }
+
+  // Sort all matches by index
+  const allMatches = [
+    ...openingMatches.map((m) => ({ type: "open" as const, index: m.index, length: m.length })),
+    ...closingMatches.map((m) => ({ type: "close" as const, index: m.index })),
+  ].sort((a, b) => b.index - a.index); // Sort in reverse order
+
+  // Process matches in reverse order to find the matching opening tag
+  depth = 0;
+  for (const match of allMatches) {
+    if (match.type === "close") {
+      depth++;
+    } else {
+      if (depth === 0) {
+        // This is the matching opening tag
+        return {
+          name: tagName,
+          position: { line: 0, character: 0 }, // Will be converted later if needed
+          index: match.index,
+        };
+      }
+      depth--;
+    }
+  }
+
+  return null;
 };
 
 /**
