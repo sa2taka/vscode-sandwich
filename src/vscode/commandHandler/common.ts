@@ -235,7 +235,7 @@ export async function showSourcePairQuickPick(isHtml: boolean): Promise<PairType
   const selectedValue = await createCommonQuickPick(uniquePairs, "Select pair");
 
   // Handle tag selection if needed
-  if (selectedValue && typeof selectedValue === "object" && !selectedValue.name) {
+  if (selectedValue && typeof selectedValue === "object") {
     return await handleTagNameSelection(detectedPairs);
   }
 
