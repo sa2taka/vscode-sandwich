@@ -151,36 +151,149 @@ const findInnerTagContent = (editorState: EditorState): SelectionRangeWithPairRe
   const { documentText, cursorPosition } = editorState;
   const cursorOffset = positionToOffset(editorState, cursorPosition);
 
-  // Find the closing tag after cursor
-  const closingTag = findClosingTagAfterCursor(documentText, cursorOffset);
-  if (!closingTag) return null;
-
-  // Find the matching opening tag
-  const openingTag = findMatchingOpeningTag(documentText, closingTag.name, closingTag.index);
+  // Find the opening tag before cursor
+  const openingTag = findOpeningTagBeforeCursor(documentText, cursorOffset);
   if (!openingTag) return null;
 
+  // Find the matching closing tag after the opening tag
+  const closingTag = findMatchingClosingTagForInnerContent(documentText, openingTag.name, openingTag.endIndex);
+  if (!closingTag) return null;
+
   // Create range from end of opening tag to start of closing tag
-  const openingEndPosition = offsetToPosition(editorState, openingTag.index + openingTag.name.length + 2); // +2 for "<" and ">"
-  const closingStartPosition = offsetToPosition(editorState, closingTag.index);
+  const openingEndPosition = offsetToPosition(editorState, openingTag.endIndex);
+  const closingStartPosition = offsetToPosition(editorState, closingTag.startIndex);
 
   const range: Range = {
     start: openingEndPosition,
     end: closingStartPosition,
   };
 
-  // startRangeとendRangeを追加
   const startRange: Range = {
-    start: offsetToPosition(editorState, openingTag.index),
+    start: offsetToPosition(editorState, openingTag.startIndex),
     end: openingEndPosition,
   };
 
   const endRange: Range = {
     start: closingStartPosition,
-    end: offsetToPosition(editorState, closingTag.index + closingTag.name.length + 3), // +3 for "</", ">"
+    end: offsetToPosition(editorState, closingTag.endIndex),
   };
 
   const text = getTextFromRange(editorState, range);
   return { range, startRange, endRange, text };
+};
+
+/**
+ * Finds the opening tag before the cursor position
+ */
+const findOpeningTagBeforeCursor = (
+  documentText: string,
+  cursorOffset: number
+): { name: string; startIndex: number; endIndex: number } | null => {
+  // Cursor is out of range
+  if (cursorOffset < 0 || cursorOffset >= documentText.length) {
+    return null;
+  }
+
+  // Search for opening tag before cursor
+  let depth = 0;
+  for (let i = cursorOffset; i >= 0; i--) {
+    if (documentText[i] === ">") {
+      depth++;
+    } else if (documentText[i] === "<" && depth > 0) {
+      depth--;
+      if (depth === 0) {
+        // Extract tag name
+        const tagMatch = /<([A-Za-z][\dA-Za-z]*)/.exec(documentText.substring(i));
+        if (tagMatch) {
+          const tagName = tagMatch[1];
+          const startIndex = i;
+          let endIndex = i + tagMatch[0].length;
+
+          // Find the end of the opening tag
+          while (endIndex < documentText.length && documentText[endIndex] !== ">") {
+            endIndex++;
+          }
+
+          if (endIndex < documentText.length) {
+            endIndex++; // Include the '>'
+            return { name: tagName, startIndex, endIndex };
+          }
+        }
+      }
+    }
+  }
+
+  return null;
+};
+
+/**
+ * Finds the matching closing tag for inner content selection
+ */
+const findMatchingClosingTagForInnerContent = (
+  documentText: string,
+  tagName: string,
+  afterIndex: number
+): { startIndex: number; endIndex: number } | null => {
+  // Search for closing tag after the opening tag
+  let depth = 0;
+  for (let i = afterIndex; i < documentText.length; i++) {
+    if (i + 2 < documentText.length && documentText[i] === "<") {
+      // Check for any opening tag
+      if (documentText[i + 1] !== "/") {
+        const anyOpenTagRegex = /<([A-Za-z][\dA-Za-z]*)/;
+        const anyOpenTagMatch = anyOpenTagRegex.exec(documentText.substring(i));
+        if (anyOpenTagMatch) {
+          // If we find any opening tag, increase depth
+          depth++;
+          // Skip to the end of this tag to avoid double counting
+          let skipTo = i + anyOpenTagMatch[0].length;
+          while (skipTo < documentText.length && documentText[skipTo] !== ">") {
+            skipTo++;
+          }
+          if (skipTo < documentText.length) {
+            i = skipTo;
+          }
+        }
+      } else {
+        // Check for any closing tag
+        const anyCloseTagRegex = /<\/([A-Za-z][\dA-Za-z]*)/;
+        const anyCloseTagMatch = anyCloseTagRegex.exec(documentText.substring(i));
+        if (anyCloseTagMatch) {
+          const closedTagName = anyCloseTagMatch[1];
+
+          // If this is our target tag and we're at the correct nesting level
+          if (closedTagName === tagName && depth === 0) {
+            const startIndex = i;
+            let endIndex = i + anyCloseTagMatch[0].length;
+
+            // Find the end of the closing tag
+            while (endIndex < documentText.length && documentText[endIndex] !== ">") {
+              endIndex++;
+            }
+
+            if (endIndex < documentText.length) {
+              endIndex++; // Include the '>'
+              return { startIndex, endIndex };
+            }
+          }
+
+          // Decrease depth for any closing tag
+          depth--;
+
+          // Skip to the end of this tag
+          let skipTo = i + anyCloseTagMatch[0].length;
+          while (skipTo < documentText.length && documentText[skipTo] !== ">") {
+            skipTo++;
+          }
+          if (skipTo < documentText.length) {
+            i = skipTo;
+          }
+        }
+      }
+    }
+  }
+
+  return null;
 };
 
 /**

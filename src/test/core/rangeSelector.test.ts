@@ -159,6 +159,60 @@ suite("Core: Range Selector Test Suite", () => {
     assert.strictEqual(result.text, "\n    Hello\n    world\n  ", "Text should be the inner content of the multi-line tag");
   });
 
+  test('selectRange with type "it" should handle nested tags', () => {
+    const doc = "<div><span><p>Hello world</p></span></div>";
+    const cursor = createPosition(0, 15); // Cursor inside the p tag content
+    const selection = createRange(0, 15, 0, 15);
+    const editorState = createMockEditorState(doc, cursor, selection);
+
+    const result = selectRange("it", editorState);
+
+    assert.ok(result, "Result should not be null");
+    // The exact character positions may vary based on implementation details
+    // So we'll just check that the text content is correct
+    assert.strictEqual(result.text, "Hello world", "Text should be the inner content of the p tag");
+  });
+
+  test('selectRange with type "it" should handle cursor before nested tag', () => {
+    const doc = "<span> <div> hoge </div> </span>";
+    const cursor = createPosition(0, 7); // Cursor before the div tag
+    const selection = createRange(0, 7, 0, 7);
+    const editorState = createMockEditorState(doc, cursor, selection);
+
+    const result = selectRange("it", editorState);
+
+    assert.ok(result, "Result should not be null");
+    assert.strictEqual(result.text, " <div> hoge </div> ", "Text should be the inner content of the span tag");
+  });
+
+  test('selectRange with type "it" should handle cursor position at the edge of tag content', () => {
+    const doc = "<div>Hello world</div>";
+    const cursor = createPosition(0, 5); // Cursor at the beginning of the content
+    const selection = createRange(0, 5, 0, 5);
+    const editorState = createMockEditorState(doc, cursor, selection);
+
+    const result = selectRange("it", editorState);
+
+    assert.ok(result, "Result should not be null");
+    const expectedRange = createRange(0, 5, 0, 16);
+    assert.deepStrictEqual(result.range, expectedRange, "Range should select inner content of the div tag");
+    assert.strictEqual(result.text, "Hello world", "Text should be the inner content of the div tag");
+  });
+
+  test('selectRange with type "it" should handle tags with attributes', () => {
+    const doc = '<div class="container" id="main">Content</div>';
+    const cursor = createPosition(0, 35); // Cursor inside the content
+    const selection = createRange(0, 35, 0, 35);
+    const editorState = createMockEditorState(doc, cursor, selection);
+
+    const result = selectRange("it", editorState);
+
+    assert.ok(result, "Result should not be null");
+    // The exact character positions may vary based on implementation details
+    // So we'll just check that the text content is correct
+    assert.strictEqual(result.text, "Content", "Text should be the inner content of the div tag");
+  });
+
   // Tests for findSurroundingPair
   test("findSurroundingPair should detect when cursor is inside single quotes", () => {
     const doc = "const text = 'hello world'; console.log(text);";
