@@ -328,7 +328,7 @@ export const findAllSurroundingPairs = (editorState: EditorState): DetectedPair[
  * Finds bracket pairs (parentheses, braces, brackets, angle brackets) surrounding the cursor
  */
 const findBracketPairs = (editorState: EditorState): DetectedPair[] => {
-  const bracketTypes: BasicPairType[] = ["()", "{}", "[]", "<>"];
+  const bracketTypes: BasicPairType[] = ["(", "{", "[", "<"];
   return findPairsOfTypes(editorState, bracketTypes);
 };
 

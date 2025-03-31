@@ -19,7 +19,7 @@ export type RangeType = "_" | "s" | "it" | "at" | "st";
 /**
  * Basic pair types
  */
-export type BasicPairType = "'" | '"' | "`" | "()" | "{}" | "[]" | "<>";
+export type BasicPairType = "'" | '"' | "`" | "(" | "{" | "[" | "<";
 
 /**
  * Tag pair type
@@ -119,9 +119,9 @@ export const PAIR_DELIMITERS: Record<BasicPairType | "tag", BracketPair> = {
   "'": { opening: "'", closing: "'" },
   '"': { opening: '"', closing: '"' },
   "`": { opening: "`", closing: "`" },
-  "()": { opening: "(", closing: ")" },
-  "{}": { opening: "{", closing: "}" },
-  "[]": { opening: "[", closing: "]" },
-  "<>": { opening: "<", closing: ">" },
+  "(": { opening: "(", closing: ")" },
+  "{": { opening: "{", closing: "}" },
+  "[": { opening: "[", closing: "]" },
+  "<": { opening: "<", closing: ">" },
   tag: { opening: "", closing: "" }, // Will be set dynamically based on tag name
 };

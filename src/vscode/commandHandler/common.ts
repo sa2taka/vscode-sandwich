@@ -76,13 +76,6 @@ export function getCurrentEditorState(): EditorState | null {
 }
 
 /**
- * Filter QuickPick items based on input value
- */
-function getFilteredItems<T>(items: readonly ValueQuickPickItem<T>[], value: string): ValueQuickPickItem<T>[] {
-  return items.filter((item) => item.label.toLowerCase().includes(value.toLowerCase()));
-}
-
-/**
  * Create a common quick pick with enhanced behavior
  * This function creates a QuickPick that can automatically select an item when there's only one option
  * based on the ENTER_TO_CONFIRM configuration
@@ -101,28 +94,33 @@ export async function createCommonQuickPick<T>(
   return new Promise<T | undefined>((resolve) => {
     let selectedValue: T | undefined;
 
-    // Handle auto-selection when there's only one matching item
-    const handleAutoSelection = (value: string) => {
-      if (!enterToConfirm && quickPick.items.length > 0) {
-        const filteredItems = getFilteredItems(quickPick.items, value);
+    // Find an item that exactly matches the input value
+    const findExactMatchItem = (items: readonly ValueQuickPickItem<T>[], value: string): ValueQuickPickItem<T> | undefined => {
+      return items.find((item) => item.label.toLowerCase() === value.toLowerCase());
+    };
 
-        if (filteredItems.length === 1) {
-          selectedValue = filteredItems[0].value;
+    // Handle auto-selection when there's an exact match or only one matching item
+    const handleAutoSelection = (value: string) => {
+      if (!enterToConfirm && quickPick.items.length > 0 && value) {
+        const exactMatch = findExactMatchItem(quickPick.items, value);
+        if (exactMatch) {
+          selectedValue = exactMatch.value;
           quickPick.hide();
           resolve(selectedValue);
+          return;
         }
       }
     };
 
     quickPick.onDidChangeActive((activeItems) => {
-      // If ENTER_TO_CONFIRM is false and there's only one active item, select it automatically
-      if (!enterToConfirm && activeItems.length === 1) {
-        const filteredItems = getFilteredItems(quickPick.items, quickPick.value);
-
-        if (filteredItems.length === 1) {
-          selectedValue = filteredItems[0].value;
+      // If ENTER_TO_CONFIRM is false, check for exact match or single active item
+      if (!enterToConfirm && activeItems.length === 1 && quickPick.value) {
+        const exactMatch = findExactMatchItem(quickPick.items, quickPick.value);
+        if (exactMatch) {
+          selectedValue = exactMatch.value;
           quickPick.hide();
           resolve(selectedValue);
+          return;
         }
       }
     });
@@ -187,10 +185,10 @@ function createBasicPairOptions(): ValueQuickPickItem<PairType>[] {
     "'": "Single quotes",
     '"': "Double quotes",
     "`": "Back quotes",
-    "()": "Parentheses",
-    "{}": "Braces",
-    "[]": "Brackets",
-    "<>": "Angle brackets",
+    "(": "Parentheses",
+    "{": "Braces",
+    "[": "Brackets",
+    "<": "Angle brackets",
   };
 
   return Object.entries(basicPairMap).map(([value, description]) => ({

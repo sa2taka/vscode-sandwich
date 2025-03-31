@@ -296,7 +296,7 @@ suite("Core: Range Selector Test Suite", () => {
     const selection = createRange(0, 20, 0, 20);
     const editorState = createMockEditorState(doc, cursor, selection);
 
-    const result = findSurroundingPair(editorState, "{}");
+    const result = findSurroundingPair(editorState, "{");
 
     assert.ok(result, "Result should not be null");
     const expectedRange = createRange(0, 14, 0, 31);
@@ -309,7 +309,7 @@ suite("Core: Range Selector Test Suite", () => {
     const selection = createRange(0, 20, 0, 20);
     const editorState = createMockEditorState(doc, cursor, selection);
 
-    const result = findSurroundingPair(editorState, "{}");
+    const result = findSurroundingPair(editorState, "{");
 
     assert.ok(result, "Result should not be null");
     const expectedRange = createRange(0, 20, 0, 25);
@@ -325,7 +325,7 @@ suite("Core: Range Selector Test Suite", () => {
     const results: DetectedPair[] = findAllSurroundingPairs(editorState);
 
     // Should detect inner braces
-    const innerBracePair = results.find((pair: DetectedPair) => pair.pairType === "{}" && pair.text === " bar ");
+    const innerBracePair = results.find((pair: DetectedPair) => pair.pairType === "{" && pair.text === " bar ");
     assert.ok(innerBracePair, "Should detect inner brace pair");
 
     // Check that the inner pair is detected correctly
