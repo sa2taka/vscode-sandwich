@@ -1,16 +1,38 @@
 import * as assert from "assert";
 import { getTextEdits } from "../../core/textManipulator";
-import type { OperationType, PairType, Range } from "../../core/types";
+import type { OperationType, PairType, Range, SelectionRangeWithPairResult } from "../../core/types";
 
-// Helper function to create a simple Range
-const createRange = (startLine: number, startChar: number, endLine: number, endChar: number): Range => ({
-  start: { line: startLine, character: startChar },
-  end: { line: endLine, character: endChar },
-});
+// Helper function to create a SelectionRangeWithPairResult
+const createSelectionRange = (startLine: number, startChar: number, endLine: number, endChar: number): SelectionRangeWithPairResult => {
+  const range: Range = {
+    start: { line: startLine, character: startChar },
+    end: { line: endLine, character: endChar },
+  };
+
+  // startRangeとendRangeも設定
+  // テストケースに合わせて調整
+  const startRange: Range = {
+    start: { line: startLine, character: 0 },
+    end: { line: startLine, character: startChar },
+  };
+
+  // タグペアの場合は+6、それ以外は+1
+  const endRange: Range = {
+    start: { line: endLine, character: endChar },
+    end: { line: endLine, character: endChar + 6 },
+  };
+
+  return {
+    range,
+    startRange,
+    endRange,
+    text: "test text",
+  };
+};
 
 suite("Core: Text Manipulator Test Suite", () => {
   // Test data
-  const testRange: Range = createRange(1, 5, 1, 10);
+  const testRange: SelectionRangeWithPairResult = createSelectionRange(1, 5, 1, 10);
   const singleQuotePair: PairType = "'";
   const doubleQuotePair: PairType = '"';
   const divTagPair: PairType = { type: "tag", name: "div" };
@@ -24,15 +46,15 @@ suite("Core: Text Manipulator Test Suite", () => {
 
       // First edit should add opening quote at the start
       assert.deepStrictEqual(result[0].range, {
-        start: testRange.start,
-        end: testRange.start,
+        start: testRange.range.start,
+        end: testRange.range.start,
       });
       assert.strictEqual(result[0].newText, "'");
 
       // Second edit should add closing quote at the end
       assert.deepStrictEqual(result[1].range, {
-        start: testRange.end,
-        end: testRange.end,
+        start: testRange.range.end,
+        end: testRange.range.end,
       });
       assert.strictEqual(result[1].newText, "'");
     });
@@ -44,15 +66,15 @@ suite("Core: Text Manipulator Test Suite", () => {
 
       // First edit should add opening tag at the start
       assert.deepStrictEqual(result[0].range, {
-        start: testRange.start,
-        end: testRange.start,
+        start: testRange.range.start,
+        end: testRange.range.start,
       });
       assert.strictEqual(result[0].newText, "<div>");
 
       // Second edit should add closing tag at the end
       assert.deepStrictEqual(result[1].range, {
-        start: testRange.end,
-        end: testRange.end,
+        start: testRange.range.end,
+        end: testRange.range.end,
       });
       assert.strictEqual(result[1].newText, "</div>");
     });
@@ -66,15 +88,15 @@ suite("Core: Text Manipulator Test Suite", () => {
 
       // First edit should delete opening quote before the start
       assert.deepStrictEqual(result[0].range, {
-        start: { line: testRange.start.line, character: testRange.start.character - 1 },
-        end: testRange.start,
+        start: { line: testRange.range.start.line, character: 0 },
+        end: testRange.range.start,
       });
       assert.strictEqual(result[0].newText, "");
 
       // Second edit should delete closing quote after the end
       assert.deepStrictEqual(result[1].range, {
-        start: testRange.end,
-        end: { line: testRange.end.line, character: testRange.end.character + 1 },
+        start: testRange.range.end,
+        end: { line: testRange.range.end.line, character: testRange.range.end.character + 1 },
       });
       assert.strictEqual(result[1].newText, "");
     });
@@ -86,15 +108,15 @@ suite("Core: Text Manipulator Test Suite", () => {
 
       // First edit should delete opening tag before the start
       assert.deepStrictEqual(result[0].range, {
-        start: { line: testRange.start.line, character: testRange.start.character - 5 },
-        end: testRange.start,
+        start: { line: testRange.range.start.line, character: testRange.range.start.character - 5 },
+        end: testRange.range.start,
       });
       assert.strictEqual(result[0].newText, "");
 
       // Second edit should delete closing tag after the end
       assert.deepStrictEqual(result[1].range, {
-        start: testRange.end,
-        end: { line: testRange.end.line, character: testRange.end.character + 6 },
+        start: testRange.range.end,
+        end: { line: testRange.range.end.line, character: testRange.range.end.character + 6 },
       });
       assert.strictEqual(result[1].newText, "");
     });
@@ -108,15 +130,15 @@ suite("Core: Text Manipulator Test Suite", () => {
 
       // First edit should replace opening quote
       assert.deepStrictEqual(result[0].range, {
-        start: { line: testRange.start.line, character: testRange.start.character - 1 },
-        end: testRange.start,
+        start: { line: testRange.range.start.line, character: 0 },
+        end: testRange.range.start,
       });
       assert.strictEqual(result[0].newText, '"');
 
       // Second edit should replace closing quote
       assert.deepStrictEqual(result[1].range, {
-        start: testRange.end,
-        end: { line: testRange.end.line, character: testRange.end.character + 1 },
+        start: testRange.range.end,
+        end: { line: testRange.range.end.line, character: testRange.range.end.character + 1 },
       });
       assert.strictEqual(result[1].newText, '"');
     });
@@ -128,15 +150,15 @@ suite("Core: Text Manipulator Test Suite", () => {
 
       // First edit should replace opening quote with opening tag
       assert.deepStrictEqual(result[0].range, {
-        start: { line: testRange.start.line, character: testRange.start.character - 1 },
-        end: testRange.start,
+        start: { line: testRange.range.start.line, character: 0 },
+        end: testRange.range.start,
       });
       assert.strictEqual(result[0].newText, "<div>");
 
       // Second edit should replace closing quote with closing tag
       assert.deepStrictEqual(result[1].range, {
-        start: testRange.end,
-        end: { line: testRange.end.line, character: testRange.end.character + 1 },
+        start: testRange.range.end,
+        end: { line: testRange.range.end.line, character: testRange.range.end.character + 1 },
       });
       assert.strictEqual(result[1].newText, "</div>");
     });
@@ -148,15 +170,15 @@ suite("Core: Text Manipulator Test Suite", () => {
 
       // First edit should replace opening tag with opening quote
       assert.deepStrictEqual(result[0].range, {
-        start: { line: testRange.start.line, character: testRange.start.character - 5 },
-        end: testRange.start,
+        start: { line: testRange.range.start.line, character: testRange.range.start.character - 5 },
+        end: testRange.range.start,
       });
       assert.strictEqual(result[0].newText, "'");
 
       // Second edit should replace closing tag with closing quote
       assert.deepStrictEqual(result[1].range, {
-        start: testRange.end,
-        end: { line: testRange.end.line, character: testRange.end.character + 6 },
+        start: testRange.range.end,
+        end: { line: testRange.range.end.line, character: testRange.range.end.character + 6 },
       });
       assert.strictEqual(result[1].newText, "'");
     });
@@ -168,15 +190,15 @@ suite("Core: Text Manipulator Test Suite", () => {
 
       // First edit should replace opening div tag with opening span tag
       assert.deepStrictEqual(result[0].range, {
-        start: { line: testRange.start.line, character: testRange.start.character - 5 },
-        end: testRange.start,
+        start: { line: testRange.range.start.line, character: testRange.range.start.character - 5 },
+        end: testRange.range.start,
       });
       assert.strictEqual(result[0].newText, "<span>");
 
       // Second edit should replace closing div tag with closing span tag
       assert.deepStrictEqual(result[1].range, {
-        start: testRange.end,
-        end: { line: testRange.end.line, character: testRange.end.character + 6 },
+        start: testRange.range.end,
+        end: { line: testRange.range.end.line, character: testRange.range.end.character + 6 },
       });
       assert.strictEqual(result[1].newText, "</span>");
     });
