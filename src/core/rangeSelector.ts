@@ -208,7 +208,6 @@ const findEntireTag = (editorState: EditorState): SelectionRangeWithPairResult |
     end: closingEndPosition,
   };
 
-  // startRangeとendRangeを追加
   const startRange: Range = {
     start: openingStartPosition,
     end: offsetToPosition(editorState, openingTag.index + openingTag.name.length + 2), // +2 for "<" and ">"
