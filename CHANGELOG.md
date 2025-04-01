@@ -1,8 +1,12 @@
 # Change Log
 
+## [0.0.5]
+
+  Fix to add bracket
+
 ## [0.0.4]
 
-- improve behavior about html tag
+- Improve behavior about html tag
 
 ## [0.0.3]
 
