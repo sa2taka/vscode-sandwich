@@ -5,8 +5,11 @@ import { SelectionRangeWithPairResult, type OperationType, type PairType, type R
  */
 const getPairParts = (pair: PairType): { opening: string; closing: string } => {
   if (typeof pair === "string") {
-    // Basic pair (quotes)
-    return { opening: pair, closing: pair };
+    // Single character pair
+    return {
+      opening: pair,
+      closing: pair,
+    };
   } else {
     // Tag pair
     return {

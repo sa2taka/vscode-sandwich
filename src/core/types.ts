@@ -19,7 +19,9 @@ export type RangeType = "_" | "s" | "it" | "at" | "st";
 /**
  * Basic pair types
  */
-export type BasicPairType = "'" | '"' | "`" | "(" | "{" | "[" | "<";
+export const BRACKETS_DELIMITERS = ["(", "{", "[", "<"] as const;
+export const QUOTES_DELIMITERS = ["'", '"', "`"] as const;
+export type BasicPairType = (typeof BRACKETS_DELIMITERS)[number] | (typeof QUOTES_DELIMITERS)[number];
 
 /**
  * Tag pair type

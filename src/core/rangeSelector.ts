@@ -1,5 +1,7 @@
 import {
+  BRACKETS_DELIMITERS,
   PAIR_DELIMITERS,
+  QUOTES_DELIMITERS,
   type BasicPairType,
   type EditorState,
   type PairType,
@@ -580,7 +582,7 @@ export const findAllSurroundingPairs = (editorState: EditorState): DetectedPair[
  * Finds bracket pairs (parentheses, braces, brackets, angle brackets) surrounding the cursor
  */
 const findBracketPairs = (editorState: EditorState): DetectedPair[] => {
-  const bracketTypes: BasicPairType[] = ["(", "{", "[", "<"];
+  const bracketTypes = BRACKETS_DELIMITERS;
   return findPairsOfTypes(editorState, bracketTypes);
 };
 
@@ -588,14 +590,14 @@ const findBracketPairs = (editorState: EditorState): DetectedPair[] => {
  * Finds quote pairs (single, double, backtick) surrounding the cursor
  */
 const findQuotePairs = (editorState: EditorState): DetectedPair[] => {
-  const quoteTypes: BasicPairType[] = ["'", '"', "`"];
+  const quoteTypes = QUOTES_DELIMITERS;
   return findPairsOfTypes(editorState, quoteTypes);
 };
 
 /**
  * Finds pairs of specified types
  */
-const findPairsOfTypes = (editorState: EditorState, pairTypes: BasicPairType[]): DetectedPair[] => {
+const findPairsOfTypes = (editorState: EditorState, pairTypes: readonly BasicPairType[]): DetectedPair[] => {
   const pairs: DetectedPair[] = [];
 
   for (const pairType of pairTypes) {
