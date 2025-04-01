@@ -20,8 +20,18 @@ export type RangeType = "_" | "s" | "it" | "at" | "st";
  * Basic pair types
  */
 export const BRACKETS_DELIMITERS = ["(", "{", "[", "<"] as const;
+export type BracketDelimiter = (typeof BRACKETS_DELIMITERS)[number];
+export const isBrackets = (pair: BasicPairType): pair is BracketDelimiter => {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+  return BRACKETS_DELIMITERS.includes(pair as any);
+};
 export const QUOTES_DELIMITERS = ["'", '"', "`"] as const;
-export type BasicPairType = (typeof BRACKETS_DELIMITERS)[number] | (typeof QUOTES_DELIMITERS)[number];
+export type QuoteDelimiter = (typeof QUOTES_DELIMITERS)[number];
+export const isQuotes = (pair: BasicPairType): pair is QuoteDelimiter => {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+  return QUOTES_DELIMITERS.includes(pair as any);
+};
+export type BasicPairType = BracketDelimiter | QuoteDelimiter;
 
 /**
  * Tag pair type

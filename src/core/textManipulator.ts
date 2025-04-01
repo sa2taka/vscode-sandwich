@@ -1,21 +1,51 @@
-import { SelectionRangeWithPairResult, type OperationType, type PairType, type Range, type TextEditResult } from "./types";
+import {
+  BracketDelimiter,
+  isBrackets,
+  SelectionRangeWithPairResult,
+  type OperationType,
+  type PairType,
+  type Range,
+  type TextEditResult,
+} from "./types";
 
 /**
  * Get the opening and closing parts of a pair
  */
 const getPairParts = (pair: PairType): { opening: string; closing: string } => {
   if (typeof pair === "string") {
-    // Single character pair
-    return {
-      opening: pair,
-      closing: pair,
-    };
+    if (isBrackets(pair)) {
+      return {
+        opening: pair,
+        closing: getBracketClosing(pair),
+      };
+    } else {
+      return {
+        opening: pair,
+        closing: pair,
+      };
+    }
   } else {
     // Tag pair
     return {
       opening: `<${pair.name}>`,
       closing: `</${pair.name}>`,
     };
+  }
+};
+
+const getBracketClosing = (pair: BracketDelimiter): string => {
+  switch (pair) {
+    case "(":
+      return ")";
+    case "{":
+      return "}";
+    case "[":
+      return "]";
+    case "<":
+      return ">";
+    default:
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+      throw new Error(`Unknown bracket delimiter: ${pair}`);
   }
 };
 
